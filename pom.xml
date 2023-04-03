@@ -1,0 +1,122 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>at.syntaxerror</groupId>
+  <artifactId>ieee754-java</artifactId>
+  <version>1.0.0</version>
+  <name>IEEE754-Java</name>
+  <description>A Java 19 library for converting between IEEE 754 binary and decimal and BigDecimal</description>
+  <licenses>
+    <license>
+      <name>The MIT License</name>
+      <url>https://github.com/Synt4xErr0r4/ieee754-java/blob/main/LICENSE</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+  <developers>
+    <developer>
+      <id>thomas-kasper</id>
+      <name>Thomas Kasper</name>
+      <email>thomas@syntaxerror.at</email>
+      <url>https://syntaxerror.at</url>
+      <timezone>Europe/Vienna</timezone>
+    </developer>
+  </developers>
+  <scm>
+    <connection>scm:git:git://github.com/Synt4xErr0r4/ieee754-java.git</connection>
+    <url>http://github.com/Synt4xErr0r4/ieee754-java</url>
+  </scm>
+  <issueManagement>
+    <system>GitHub Issues</system>
+    <url>https://github.com/Synt4xErr0r4/ieee754-java/issues</url>
+  </issueManagement>
+  <build>
+		<sourceDirectory>src/main/java</sourceDirectory>
+	
+		<plugins>
+			<plugin>
+		    	<groupId>org.projectlombok</groupId>
+	    		<artifactId>lombok-maven-plugin</artifactId>
+    			<version>1.18.20.0</version>
+    			<configuration>
+    				<encoding>UTF-8</encoding>
+    				<sourceDirectory>src/main/java</sourceDirectory>
+    				<outputDirectory>target/delombok</outputDirectory>
+    			</configuration>
+		    </plugin>
+			<plugin>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>3.8.1</version>
+				<configuration>
+					<source>target/delombok</source>
+					<release>19</release>
+					<compilerArgs></compilerArgs>
+					<annotationProcessorPaths>
+						<path>
+							<groupId>org.projectlombok</groupId>
+							<artifactId>lombok</artifactId>
+							<version>1.18.20</version>
+						</path>
+					</annotationProcessorPaths>
+				</configuration>
+			</plugin>
+			<plugin>
+				<artifactId>maven-javadoc-plugin</artifactId>
+				<version>3.3.0</version>
+				<executions>
+					<execution>
+						<goals>
+							<goal>aggregate-jar</goal>
+						</goals>
+					</execution>
+				</executions>
+				<configuration>
+					<sourcepath>target/delombok</sourcepath>
+					<additionalJOptions>
+						<additionalJOption>-J-Duser.language=en</additionalJOption>
+					</additionalJOptions>
+				</configuration>
+			</plugin>
+			<plugin>
+				<artifactId>maven-source-plugin</artifactId>
+				<version>3.2.0</version>
+				<executions>
+					<execution>
+						<goals>
+							<goal>jar</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
+	    <extensions>
+	    	<extension>
+	    		<groupId>org.apache.maven.wagon</groupId>
+	    		<artifactId>wagon-ftp</artifactId>
+	    		<version>3.2.0</version>
+	      	</extension>
+	    </extensions>
+	</build>
+  <dependencies>
+    <!-- https://mvnrepository.com/artifact/org.projectlombok/lombok -->
+    <dependency>
+        <groupId>org.projectlombok</groupId>
+        <artifactId>lombok</artifactId>
+        <version>1.18.24</version>
+        <scope>provided</scope>
+    </dependency>
+    
+    <!-- for BigDecimal logarithm -->
+    <dependency>
+        <groupId>ch.obermuhlner</groupId>
+        <artifactId>big-math</artifactId>
+        <version>2.3.0</version>
+    </dependency>
+  </dependencies>
+	
+	<distributionManagement>
+  		<repository>
+			<id>syntaxerror.at</id>
+			<url>${env.FTP_URL}</url>
+ 		</repository>
+  	</distributionManagement>
+</project>
