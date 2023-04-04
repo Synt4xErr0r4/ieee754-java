@@ -1,4 +1,4 @@
-# ieee754-java [![javadoc](https://img.shields.io/endpoint?label=javadoc&url=https://javadoc.syntaxerror.at/ieee754-java/%3Fbadge=true%26version=latest)](https://javadoc.syntaxerror.at/ieee754-java/latest)
+# ieee754-java [![javadoc](https://img.shields.io/endpoint?label=javadoc&url=https://javadoc.syntaxerror.at/ieee754-java/%3Fbadge=true%26version=latest)](https://javadoc.syntaxerror.at/ieee754-java/latest) ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/Synt4xErr0r4/ieee754-java/maven.yml)
 
 A Java 19 library for converting between IEEE 754 binary floating-point numbers and Java's BigDecimal
 
