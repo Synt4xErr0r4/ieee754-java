@@ -30,8 +30,6 @@
     <url>https://github.com/Synt4xErr0r4/ieee754-java/issues</url>
   </issueManagement>
   <build>
-		<sourceDirectory>src/main/java</sourceDirectory>
-	
 		<plugins>
 			<plugin>
 		    	<groupId>org.projectlombok</groupId>
@@ -41,13 +39,25 @@
     				<encoding>UTF-8</encoding>
     				<sourceDirectory>src/main/java</sourceDirectory>
     				<outputDirectory>target/delombok</outputDirectory>
+                	<addOutputDirectory>false</addOutputDirectory>
     			</configuration>
+			    <executions>
+			        <execution>
+			            <phase>generate-sources</phase>
+			            <goals>
+			                <goal>delombok</goal>
+			            </goals>
+			        </execution>
+			    </executions>
 		    </plugin>
 			<plugin>
 				<artifactId>maven-compiler-plugin</artifactId>
 				<version>3.8.1</version>
 				<configuration>
 					<source>target/delombok</source>
+                    <excludes>
+                    	<exclude>src/main/java</exclude>
+                    </excludes>
 					<release>19</release>
 					<compilerArgs></compilerArgs>
 					<annotationProcessorPaths>

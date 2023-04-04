@@ -1,5 +1,24 @@
-/**
+/* MIT License
  * 
+ * Copyright (c) 2023 Thomas Kasper
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
  */
 package at.syntaxerror.ieee754;
 
@@ -7,7 +26,9 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
 import java.math.RoundingMode;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Supplier;
 
 import ch.obermuhlner.math.big.BigDecimalMath;
 import lombok.NonNull;
@@ -16,47 +37,95 @@ import lombok.NonNull;
  * This class represents a codec capable of encoding and decoding IEEE 754 binary floating point numbers
  * as well as computing common values (such as NaN, maximum value, ...)
  * 
- * @author SyntaxError404
+ * @author Thomas Kasper
  * 
  */
-public class BinaryCodec<T extends Binary<T>> {
-	
-	private static final MathContext CTX = MathContext.UNLIMITED;
-	
-	private static final BigDecimal TWO = BigDecimal.valueOf(2);
+@SuppressWarnings("unchecked")
+public final class BinaryCodec<T extends Binary<T>> {
 
-	private static final MathContext CEIL = new MathContext(0, RoundingMode.CEILING);
+	private static final MathContext BIGCTX = new MathContext(607, RoundingMode.HALF_EVEN);
+	private static final MathContext CTX = MathContext.UNLIMITED;
 	private static final MathContext FLOOR = new MathContext(0, RoundingMode.FLOOR);
 	
-	private static final BigDecimal LOG10_2 = BigDecimalMath.log10(TWO, MathContext.DECIMAL128);
+	private static final BigDecimal TWO = BigDecimal.valueOf(2);
+	private static final BigDecimal LOG10_2 = BigDecimalMath.log10(TWO, BIGCTX);
 
-	private final int mantissa;
+	private static final int MEMOIZE_POS_INF = 0;
+	private static final int MEMOIZE_NEG_INF = 1;
+	private static final int MEMOIZE_SMINVAL = 2;
+	private static final int MEMOIZE_MIN_VAL = 3;
+	private static final int MEMOIZE_MAX_VAL = 4;
+	private static final int MEMOIZE_EPSILON = 5;
+	private static final int MEMOIZE_EXRANGE = 6;
+	private static final int MEMOIZE_EX10RNG = 7;
+	private static final int MEMOIZE_DECDIGS = 8;
+	private static final int MEMOIZE_POWEXP1 = 9;
+	private static final int MEMOIZE_POWMANT = 10;
+	
 	private final int exponent;
+	private final int mantissa;
 	private final boolean implicit;
 	
 	private final BinaryFactory<T> factory;
 	
+	private final Map<Integer, Object> memoized = new HashMap<>();
+	
 	/**
 	 * Creates a new binary codec
 	 * 
-	 * @param mantissa the number of mantissa bits
-	 * @param exponent the number of exponent bits
+	 * @param mantissa the number of mantissa bits ({@code > 0})
+	 * @param exponent the number of exponent bits ({@code > 0}, {@code < 32})
 	 * @param implicit whether there is an implicit mantissa bit
 	 * @param factory the factory for creating {@link Binary} objects
 	 */
-	public BinaryCodec(int mantissa, int exponent, boolean implicit, @NonNull BinaryFactory<T> factory) {
+	public BinaryCodec(int exponent, int mantissa, boolean implicit, @NonNull BinaryFactory<T> factory) {
 		if(exponent < 1) throw new IllegalArgumentException("Illegal non-positive exponent size");
 		if(mantissa < 1) throw new IllegalArgumentException("Illegal non-positive mantissa size");
  
-		if(exponent > 30) throw new IllegalArgumentException("Exponent size is too big");
-		if(mantissa > 512) throw new IllegalArgumentException("Mantissa size is too big");
-		
-		this.mantissa = mantissa;
+		if(exponent > 31) throw new IllegalArgumentException("Exponent size is too big");
+
 		this.exponent = exponent;
+		this.mantissa = mantissa;
 		this.implicit = implicit;
 		this.factory = factory;
 	}
 
+	private <R> R memoize(int id, Supplier<R> generator) {
+		Object value = memoized.get(id);
+		
+		if(value == null)
+			memoized.put(id, value = generator.get());
+		
+		return (R) value;
+	}
+	
+	/**
+	 * Returns the number of bits occupied by the exponent
+	 * 
+	 * @return the number of exponent's bits 
+	 */
+	public int getExponentBits() {
+		return exponent;
+	}
+	
+	/**
+	 * Returns the number of bits occupied by the mantissa
+	 * 
+	 * @return the number of mantissa's bits 
+	 */
+	public int getMantissaBits() {
+		return mantissa;
+	}
+	
+	/**
+	 * Returns whether there is an implicit bit used for the binary representation
+	 * 
+	 * @return whether there is an implicit bit
+	 */
+	public boolean isImplicit() {
+		return implicit;
+	}
+	
 	/**
 	 * Encodes the floating point into its byte representation
 	 * 
@@ -83,10 +152,20 @@ public class BinaryCodec<T extends Binary<T>> {
 		BigDecimal bigdec = value.getBigDecimal();
 		
 		if(bigdec.compareTo(BigDecimal.ZERO) == 0)
-			return BigInteger.ZERO;
+			return getZero(0);
+		
+		BigDecimal absdec = bigdec.abs();
 		
 		// determine sign bit
 		int sign = bigdec.signum() == -1 ? 1 : 0;
+		
+		if(absdec.compareTo(getMaxValue().getBigDecimal()) > 0) // out of range => Infinity
+			return sign == -1
+				? getNegativeInfinity()
+				: getPositiveInfinity();
+		
+		if(absdec.compareTo(getMinSubnormalValue().getBigDecimal()) < 0) // out of range => 0
+			return getZero(sign);
 		
 		// strip fractional part
 		BigInteger mantissa = bigdec.toBigInteger();
@@ -99,6 +178,25 @@ public class BinaryCodec<T extends Binary<T>> {
 
 		// unbiased exponent, or 0 if exponent would be negative
 		int exp = mantissa.bitLength();
+		
+		boolean subnormal = false;
+		
+		if(absdec.compareTo(getMinValue().getBigDecimal()) < 0) {
+			// subnormal
+			
+			subnormal = true;
+			exp = 0;
+			
+			// remove factor 2^-e_min
+			fraction = fraction.multiply(
+				BigDecimalMath.pow(
+					BigDecimal.TWO,
+					1 - getExponentRange().getKey(),
+					BIGCTX
+				),
+				BIGCTX
+			);
+		}
 		
 		int n = 0;
 		
@@ -139,18 +237,25 @@ public class BinaryCodec<T extends Binary<T>> {
 			++n;
 
 			mantissa = mantissa.shiftLeft(1);
-			
+
 			if(integerPart == 1) {
 				mantissa = mantissa.or(BigInteger.ONE);
 				fraction = fraction.subtract(BigDecimal.ONE, CTX);
 			}
 		}
 		
+		if(subnormal)
+			return mantissa.compareTo(BigInteger.ZERO) == 0
+				? getZero(sign)
+				: BigInteger.valueOf(sign)
+					.shiftLeft(this.exponent + this.mantissa)
+					.or(mantissa.shiftLeft(this.mantissa - n));
+		
 		// fix exponent (negative exponent)
 		if(exp == 0)
 			exp = mantissa.bitLength() - n - 1;
 		else --exp;
-		
+
 		int off = 0;
 		
 		// clear most significant bit if it is implicit
@@ -206,7 +311,7 @@ public class BinaryCodec<T extends Binary<T>> {
 		}
 		
 		// exponent is all 1s => infinity, NaN
-		else if(exponent == mask(exponent).intValue()) {
+		else if(exponent == mask(this.exponent).intValue()) {
 			// BigDecimal does have neither infinity nor NaN
 			
 			int signum = sign ? 1 : -1;
@@ -260,9 +365,26 @@ public class BinaryCodec<T extends Binary<T>> {
 		return BigInteger.ONE.shiftLeft(n).subtract(BigInteger.ONE);
 	}
 
-	// computes 2^n where n is < 0 [equivalent to 1/(2^(-n)) = 1/(1<<(-n))]
+	// computes 2^-n where n is positive
 	private BigDecimal pow2negative(int n) {
-		return BigDecimal.ONE.divide(new BigDecimal(BigInteger.ONE.shiftLeft(n), CTX));
+		return BigDecimalMath.pow(BigDecimal.TWO, -n, BIGCTX);
+		// return BigDecimal.ONE.divide(new BigDecimal(BigInteger.ONE.shiftLeft(n)), getDecimalDigits() * 2, RoundingMode.HALF_UP);
+	}
+	
+	// computes 2^(e_min-1)
+	private BigDecimal pow2exp1() {
+		return memoize(
+			MEMOIZE_POWEXP1,
+			() -> pow2negative(1 - getExponentRange().getKey())
+		);
+	}
+	
+	// computes 2^-mantissa
+	private BigDecimal pow2mant() {
+		return memoize(
+			MEMOIZE_POWMANT,
+			() -> pow2negative(mantissa)
+		);
 	}
 	
 	/**
@@ -305,94 +427,106 @@ public class BinaryCodec<T extends Binary<T>> {
 	}
 
 	/**
-	 * Checks if the value is Negative
+	 * Checks if the value is positive
 	 * 
 	 * @param value the value
-	 * @return whether the value is Negative
+	 * @return whether the value is positive
+	 */
+	public boolean isPositive(BigInteger value) {
+		return !isNegative(value);
+	}
+
+	/**
+	 * Checks if the value is negative
+	 * 
+	 * @param value the value
+	 * @return whether the value is negative
 	 */
 	public boolean isNegative(BigInteger value) {
 		return value.testBit(exponent + mantissa);
 	}
 
 	/**
-	 * Checks if the value is Infinity
+	 * Checks if the value is {@code Infinity}'s binary representation
 	 * 
 	 * @param value the value
-	 * @return whether the value is Infinity
+	 * @return whether the value is {@code Infinity}
 	 */
 	public boolean isInfinity(BigInteger value) {
-		int exponent = getExponent(value).intValue();
-		
-		if(exponent != mask(exponent).intValue())
+		if(getExponent(value).compareTo(mask(exponent)) != 0)
 			return false;
 
 		return getMantissa(value).compareTo(BigInteger.ZERO) == 0;
 	}
 
 	/**
-	 * Checks if the value is +Infinity
+	 * Checks if the value is {@code +Infinity}'s binary representation
 	 * 
 	 * @param value the value
-	 * @return whether the value is +Infinity
+	 * @return whether the value is {@code +Infinity}
 	 */
 	public boolean isPositiveInfinity(BigInteger value) {
-		return !isNegative(value) && isInfinity(value);
+		return isPositive(value) && isInfinity(value);
 	}
 
 	/**
-	 * Checks if the value is -Infinity
+	 * Checks if the value is {@code -Infinity}'s binary representation
 	 * 
 	 * @param value the value
-	 * @return whether the value is -Infinity
+	 * @return whether the value is {@code -Infinity}
 	 */
 	public boolean isNegativeInfinity(BigInteger value) {
 		return isNegative(value) && isInfinity(value);
 	}	
 	
 	/**
-	 * returns positive infinity (like Double#POSITIVE_INFINITY)
+	 * Returns {@code +Infinity}'s (like {@link Double#POSITIVE_INFINITY}) binary representation
 	 * 
-	 * @return positive infinity
+	 * @return {@code +Infinity}
 	 */
 	public BigInteger getPositiveInfinity() {
-		return BigInteger.ZERO
-			.shiftLeft(exponent)
-			.or(mask(exponent))
-			.shiftLeft(mantissa);
+		return memoize(
+			MEMOIZE_POS_INF,
+			() -> BigInteger.ZERO
+				.shiftLeft(exponent)
+				.or(mask(exponent))
+				.shiftLeft(mantissa)
+		);
 	}
 
 	/**
-	 * Returns positive infinity (like Double#NEGATIVE_INFINITY)
+	 * Returns {@code -Infinity}'s (like {@link Double#NEGATIVE_INFINITY}) binary representation
 	 * 
-	 * @return positive infinity
+	 * @return {@code -Infinity}
 	 */
 	public BigInteger getNegativeInfinity() {
-		return BigInteger.ONE
-			.shiftLeft(exponent)
-			.or(mask(exponent))
-			.shiftLeft(mantissa);
+		return memoize(
+			MEMOIZE_NEG_INF,
+			() -> BigInteger.ONE
+				.shiftLeft(exponent)
+				.or(mask(exponent))
+				.shiftLeft(mantissa)
+		);
 	}
 
 	/**
-	 * Checks if the value is NaN
+	 * Checks if the value is {@code NaN}'s binary representation
 	 * 
 	 * @param value the value
-	 * @return whether the value is NaN
+	 * @return whether the value is {@code NaN}
 	 */
 	public boolean isNaN(BigInteger value) {
-		int exponent = getExponent(value).intValue();
-		
-		if(exponent != mask(exponent).intValue())
+		if(getExponent(value).compareTo(mask(exponent)) != 0)
 			return false;
 		
 		return getMantissa(value).compareTo(BigInteger.ZERO) != 0;
 	}
 
 	/**
-	 * Checks if the value is qNaN
+	 * Checks if the value is {@code qNaN}'s binary representation
 	 * 
 	 * @param value the value
-	 * @return whether the value is qNaN
+	 * @return whether the value is {@code qNaN}
 	 */
 	public boolean isQuietNaN(BigInteger value) {
 		return isNaN(value)
@@ -400,10 +534,10 @@ public class BinaryCodec<T extends Binary<T>> {
 	}
 	
 	/**
-	 * Checks if the value is sNaN
+	 * Checks if the value is {@code sNaN}'s binary representation
 	 * 
 	 * @param value the value
-	 * @return whether the value is sNaN
+	 * @return whether the value is {@code sNaN}
 	 */
 	public boolean isSignalingNaN(BigInteger value) {
 		return isNaN(value)
@@ -411,10 +545,10 @@ public class BinaryCodec<T extends Binary<T>> {
 	}
 	
 	/**
-	 * Returns qNaN (on most processors)
+	 * Returns {@code qNaN} binary representation (on most processors)
 	 * 
 	 * @param signum the signum
-	 * @return qNaN
+	 * @return {@code qNaN}
 	 */
 	public BigInteger getQuietNaN(int signum) {
 		return BigInteger.ZERO
@@ -428,10 +562,10 @@ public class BinaryCodec<T extends Binary<T>> {
 	}
 
 	/**
-	 * Returns sNaN (on most processors)
+	 * Returns {@code sNaN}'s binary representation (on most processors)
 	 * 
 	 * @param signum the signum
-	 * @return sNaN
+	 * @return {@code sNaN}
 	 */
 	public BigInteger getSignalingNaN(int signum) {
 		return BigInteger.ZERO
@@ -443,9 +577,9 @@ public class BinaryCodec<T extends Binary<T>> {
 	}
 
 	/**
-	 * Returns NaN
+	 * Returns {@code NaN} ({@code qNaN} on most processor; with all mantissa bits set)
 	 * 
-	 * @return NaN
+	 * @return {@code NaN}
 	 */
 	public BigInteger getNaN(int signum) {
 		return BigInteger.ZERO
@@ -455,96 +589,142 @@ public class BinaryCodec<T extends Binary<T>> {
 			.or(mask(mantissa))
 			.multiply(BigInteger.valueOf(signum));
 	}
+
+	/**
+	 * Returns (possibly negative) zero's binary representation
+	 * 
+	 * @return zero
+	 */
+	public BigInteger getZero(int signum) {
+		return signum == -1
+			? BigInteger.ONE
+				.shiftLeft(exponent + mantissa)
+			: BigInteger.ZERO;
+	}
 	
 	/**
-	 * Returns the smallest postive value for the given s
+	 * Returns the smallest postive ({@code > 0}) subnormal value
+	 * 
+	 * @return the smallest postive value
+	 */
+	public T getMinSubnormalValue() {
+		// 2^(e_min - 1) * 2^-p 	[e_min < 0]
+		return memoize(
+			MEMOIZE_SMINVAL,
+			() -> factory.create(pow2exp1().multiply(pow2mant()))
+		);
+	}
+	
+	/**
+	 * Returns the smallest postive ({@code > 0}) normalized value.
 	 * 
 	 * @return the smallest postive value
 	 */
 	public T getMinValue() {
-		return decode(
-			BigInteger.ONE
-				.shiftLeft(mantissa)
+		// 2^(e_min - 1) 	[e_min < 0]
+		return memoize(
+			MEMOIZE_MIN_VAL,
+			() -> factory.create(pow2exp1())
 		);
 	}
 
 	/**
-	 * Returns the largest value for the given s
+	 * Returns the largest possible value
 	 * 
 	 * @return the largest value
 	 */
 	public T getMaxValue() {
-		return decode(
-			BigInteger.ZERO
-				.shiftLeft(exponent)
-				.or(mask(exponent - 1))
-				.shiftLeft(mantissa + 1)
-				.or(mask(mantissa))
+		// (2 - 2^-p) * 2^e_max 	[e_max > 0]
+		return memoize(
+			MEMOIZE_MAX_VAL,
+			() -> factory.create(
+				BigDecimal.TWO
+					.subtract(pow2mant())
+					.multiply(
+						BigDecimalMath.pow(
+							BigDecimal.TWO,
+							getExponentRange().getValue() - 1,
+							BIGCTX
+						)
+					)
+			)
 		);
 	}
 	
 	/**
 	 * Returns the difference between 1 and the smallest number greater than 1
 	 * 
-	 * @return the difference
+	 * @return the difference 
 	 */
 	public BigDecimal getEpsilon() {
-		BigInteger rawOne = BigInteger.ZERO
-			.or(mask(exponent - 1))
-			.shiftLeft(mantissa);
-		
-		if(!implicit)
-			rawOne = rawOne.or(BigInteger.ONE.shiftLeft(mantissa - 1));
-		
-		// smallest number greater than 1
-		BigDecimal one = decode(rawOne.or(BigInteger.ONE)).getBigDecimal();
-		
-		return one.subtract(BigDecimal.ONE);
+		return memoize(
+			MEMOIZE_EPSILON,
+			() -> {
+				BigInteger rawOne = BigInteger.ZERO
+					.or(mask(exponent - 1))
+					.shiftLeft(mantissa);
+				
+				if(!implicit)
+					rawOne = rawOne.or(BigInteger.ONE.shiftLeft(mantissa - 1));
+				
+				// smallest number greater than 1
+				BigDecimal one = decode(rawOne.or(BigInteger.ONE)).getBigDecimal();
+				
+				return one.subtract(BigDecimal.ONE);
+			}
+		);
 	}
 	
 	/**
-	 * Returns the smallest and largest exponent
+	 * Returns the smallest and largest possible exponent
 	 * 
 	 * @return the smallest and largest exponent
 	 */
 	public Map.Entry<Integer, Integer> getExponentRange() {
-		int bias = getBias();
-		
-		return Map.entry(
-			2 - bias,
-			(1 << exponent) - 1 - bias
+		return memoize(
+			MEMOIZE_EXRANGE,
+			() -> {
+				int bias = getBias();
+				
+				return Map.entry(
+					2 - bias,
+					(1 << exponent) - 1 - bias
+				);
+			}
 		);
 	}
 	
 	/**
-	 * Returns the smallest and largest exponent so that 10 to the power of the exponent is a normalized number
+	 * Returns the smallest and largest possible exponent so that 10 to the power of the exponent is a normalized number
 	 * 
 	 * @return the smallest and largest exponent
 	 */
 	public Map.Entry<Integer, Integer> get10ExponentRange() {
-		Map.Entry<Integer, Integer> range = getExponentRange();
-		
-		// 2^(e_min - 1) 	[e_min < 0]
-		BigDecimal min = pow2negative(1 - range.getKey());
-		
-		// (1 - 2^-p) * 2^e_max 	[e_max > 0]
-		BigDecimal max = BigDecimal.ONE.subtract(pow2negative(mantissa), CTX)
-			.multiply(new BigDecimal(BigInteger.ONE.shiftLeft(range.getValue()), CTX));
-		
-		return Map.entry(
-			BigDecimalMath.log10(min, MathContext.DECIMAL128).round(CEIL).intValue(), // log10 and round down
-			BigDecimalMath.log10(max, MathContext.DECIMAL128).round(FLOOR).intValue() // log10 and round up
+		return memoize(
+			MEMOIZE_EX10RNG,
+			() -> {
+				BigDecimal min = getMinValue().getBigDecimal();
+				BigDecimal max = getMaxValue().getBigDecimal();
+				
+				return Map.entry(
+					min.precision() - min.scale() - 1, // ceil(log10(min))
+					max.precision() - max.scale() - 1  // ceil(log10(max))
+				);
+			}
 		);
 	}
 	
 	/**
-	 * Computes the number of decimal digits that can be converted back and forth without precision loss
+	 * Computes the number of decimal digits that can be converted back and forth without loss of precision
 	 * 
 	 * @return the number of decimal digits
 	 */
 	public int getDecimalDigits() {
 		// floor( (p - 1) * log10(b) )
-		return BigDecimal.valueOf(mantissa - 1).multiply(LOG10_2).round(FLOOR).intValue();
+		return memoize(
+			MEMOIZE_DECDIGS,
+			() -> BigDecimal.valueOf(mantissa - 1).multiply(LOG10_2).round(FLOOR).intValue()
+		);
 	}
 	
 }

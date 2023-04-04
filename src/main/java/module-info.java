@@ -20,55 +20,15 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.ieee754;
-
-import java.math.BigDecimal;
-
 /**
- * This class is used to create new Binary objects
+ * A Java 19 library for converting between IEEE 754 binary floating-point numbers and Java's {@link java.math.BigDecimal BigDecimal}
  * 
  * @author Thomas Kasper
- * 
+ *
  */
-public interface BinaryFactory<T extends Binary<T>> {
+module ieee754 {
+	exports at.syntaxerror.ieee754;
 
-	/**
-	 * Creates a new {@link Binary}
-	 * 
-	 * @param signum the signum (either -1, 0, or 1)
-	 * @param type the type
-	 * @return the new Binary
-	 */
-	T create(int signum, BinaryType type);
-
-	/**
-	 * Creates a new {@link Binary}
-	 * 
-	 * @param signum the signum (either -1, 0, or 1)
-	 * @param value the value
-	 * @return the new Binary
-	 */
-	T create(int signum, BigDecimal value);
-
-	/**
-	 * Creates a new {@link Binary} with the signum derived from the {@link BigDecimal#signum() BigDecimal}
-	 * 
-	 * @param value the value
-	 * @return the new Binary
-	 */
-	default T create(BigDecimal value) {
-		int signum = value.signum();
-		return create(signum == 0 ? 1 : signum, value);
-	}
-
-	/**
-	 * Creates a new Binary, with the signum derived from the BigDecimal
-	 * 
-	 * @param value the value
-	 * @return the new Binary
-	 */
-	default T create(Number value) {
-		return create(new BigDecimal(value.doubleValue()));
-	}
-	
+	requires ch.obermuhlner.math.big;
+	requires lombok;
 }
