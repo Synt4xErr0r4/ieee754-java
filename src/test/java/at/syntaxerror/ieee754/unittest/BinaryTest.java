@@ -22,7 +22,6 @@
  */
 package at.syntaxerror.ieee754.unittest;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigInteger;
@@ -175,6 +174,15 @@ class BinaryTest {
 		return new BigInteger(hex.replace(" ", ""), 16);
 	}
 	
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	private static boolean compare(Binary a, Binary b) {
+		return a.compareTo(b) == 0;
+	}
+	
+	private static boolean compare(BigInteger a, BigInteger b) {
+		return a.compareTo(b) == 0;
+	}
+	
 	private static char getSignumChar(int signum) {
 		return signum == NEGATIVE ? '-' : '+';
 	}
@@ -192,8 +200,8 @@ class BinaryTest {
 			? codec.getNegativeInfinity()
 			: codec.getPositiveInfinity();
 		
-		assertEquals(
-			0, inf.compareTo(expectation),
+		assertTrue(
+			compare(inf, expectation),
 			getSignumChar(signum) + "Infinity encoding doesn't match (got 0x" + inf.toString(16) + ") @ " + formatCodec(codec)
 		);
 		
@@ -208,8 +216,8 @@ class BinaryTest {
 		
 		BigInteger encoded = decoded.encode();
 		
-		assertEquals(
-			0, encoded.compareTo(expectation),
+		assertTrue(
+			compare(encoded, expectation),
 			getSignumChar(signum) + "Infinity re-encoding doesn't match (got 0x" + encoded.toString(16) + ") @ " + formatCodec(codec)
 		);
 	}
@@ -221,8 +229,8 @@ class BinaryTest {
 		
 		String name = quiet ? "qNaN" : "sNaN";
 		
-		assertEquals(
-			0, nan.compareTo(expectation),
+		assertTrue(
+			compare(nan, expectation),
 			name + " encoding doesn't match (got 0x" + nan.toString(16) + ") @ " + formatCodec(codec)
 		);
 		
@@ -238,8 +246,8 @@ class BinaryTest {
 		
 		BigInteger encoded = decoded.encode();
 		
-		assertEquals(
-			0, encoded.compareTo(expectation),
+		assertTrue(
+			compare(encoded, expectation),
 			name + " re-encoding doesn't match (got 0x" + encoded.toString(16) + ") @ " + formatCodec(codec)
 		);
 	}
@@ -247,8 +255,8 @@ class BinaryTest {
 	private <T extends Binary<T>> void testZero(BinaryCodec<T> codec, int signum, BigInteger expectation) {
 		BigInteger zero = codec.getZero(signum);
 		
-		assertEquals(
-			0, zero.compareTo(expectation),
+		assertTrue(
+			compare(zero, expectation),
 			getSignumChar(signum) + "0 encoding doesn't match (got 0x" + zero.toString(16) + ") @ " + formatCodec(codec)
 		);
 		
@@ -263,8 +271,8 @@ class BinaryTest {
 		
 		BigInteger encoded = decoded.encode();
 		
-		assertEquals(
-			0, encoded.compareTo(expectation),
+		assertTrue(
+			compare(encoded, expectation),
 			getSignumChar(signum) + "0 re-encoding doesn't match (got 0x" + encoded.toString(16) + ") @ " + formatCodec(codec)
 		);
 	}
@@ -272,18 +280,17 @@ class BinaryTest {
 	private <T extends Binary<T>> void testReencode(BinaryCodec<T> codec, BigInteger value) {
 		BigInteger encoded = codec.decode(value).encode();
 		
-		assertEquals(
-			0, encoded.compareTo(value),
+		assertTrue(
+			compare(encoded, value),
 			"0x" + value.toString(16) + " re-encoding doesn't match (got 0x" + encoded.toString(16) + ") @ " + formatCodec(codec)
 		);
 	}
 	
-	private <T extends Binary<T>> void testRedecode(BinaryCodec<?> codec, T value) {
-		@SuppressWarnings("unchecked")
-		T decoded = (T) codec.decode(value.encode());
+	private void testRedecode(BinaryCodec<?> codec, Binary<?> value) {
+		Binary<?> decoded = codec.decode(value.encode());
 		
-		assertEquals(
-			0, value.compareTo(decoded),
+		assertTrue(
+			compare(value, decoded),
 			value + " re-decoding doesn't match (got " + decoded + ") @ " + formatCodec(codec)
 		);
 	}
