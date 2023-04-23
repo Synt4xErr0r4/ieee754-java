@@ -86,7 +86,7 @@ The value can then be retrieved for further computations as a `BigDecimal` via t
 BigDecimal bigdec = decoded.getBigDecimal();
 ```
 
-This is applicable to all predefined types; Also, any class inheriting from `Binary<T>` has access to various helper methods, which are listed in the [JavaDoc](https://javadoc.syntaxerror.at/ieee754-java/latest/at/syntaxerror/ieee754/Binary.html).
+This is applicable to all predefined types; Also, any class inheriting from `Binary<T>` has access to various helper methods, which are listed in the [JavaDoc](https://javadoc.syntaxerror.at/ieee754-java/latest/at/syntaxerror/ieee754/binary/Binary.html).
 
 ### Custom Types
 
