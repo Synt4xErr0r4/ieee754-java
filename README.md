@@ -57,7 +57,7 @@ For any of the predefined types, there is a static field called `FACTORY`, which
 The following code, for example, creates a new 32-bit floating-point number holding the value `3.14159`:
 
 ```java
-import at.syntaxerror.ieee754.Binary32;
+import at.syntaxerror.ieee754.binary.Binary32;
 
 /* ... */
 

@@ -29,7 +29,7 @@
  *
  */
 module ieee754java {
-	exports at.syntaxerror.ieee754;
+	exports at.syntaxerror.ieee754.binary;
 
 	requires lombok;
 	requires ch.obermuhlner.math.big;

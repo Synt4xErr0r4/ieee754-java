@@ -20,7 +20,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.ieee754;
+package at.syntaxerror.ieee754.binary;
 
 /**
  * This enum contains the various types of floating-point special cases a {@link Binary} can hold.

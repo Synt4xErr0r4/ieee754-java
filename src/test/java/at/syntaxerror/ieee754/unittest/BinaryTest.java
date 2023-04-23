@@ -29,14 +29,14 @@ import java.util.Random;
 
 import org.junit.jupiter.api.Test;
 
-import at.syntaxerror.ieee754.Binary;
-import at.syntaxerror.ieee754.Binary128;
-import at.syntaxerror.ieee754.Binary16;
-import at.syntaxerror.ieee754.Binary256;
-import at.syntaxerror.ieee754.Binary32;
-import at.syntaxerror.ieee754.Binary64;
-import at.syntaxerror.ieee754.Binary80;
-import at.syntaxerror.ieee754.BinaryCodec;
+import at.syntaxerror.ieee754.binary.Binary;
+import at.syntaxerror.ieee754.binary.Binary128;
+import at.syntaxerror.ieee754.binary.Binary16;
+import at.syntaxerror.ieee754.binary.Binary256;
+import at.syntaxerror.ieee754.binary.Binary32;
+import at.syntaxerror.ieee754.binary.Binary64;
+import at.syntaxerror.ieee754.binary.Binary80;
+import at.syntaxerror.ieee754.binary.BinaryCodec;
 
 /**
  * @author Thomas Kasper
