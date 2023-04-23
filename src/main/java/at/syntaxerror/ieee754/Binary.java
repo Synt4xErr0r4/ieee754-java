@@ -41,17 +41,17 @@ public abstract class Binary<T extends Binary<T>> extends Number implements Comp
 	private final BinaryType type;
 	private final BigDecimal value;
 	
+	private BigInteger encoded;
+
 	/**
-	 * Creates a new binary floating-point number with the given signum and value.
-	 * <p>If the value exceeds the {@link BinaryCodec#getMaxValue() maximum value},
-	 * the value becomes {@link #isInfinity() Infinity} with the respective sign.
-	 * <p>If the value is less than the {@link BinaryCodec#getMinSubnormalValue() minimum value},
-	 * the values becomes {@code 0}.
 	 * 
-	 * @param signum the signum (either {@code -1}, {@code 0}, or {@code 1}; must be the same as {@link BigDecimal#signum() the value's signum})
-	 * @param value the value
+	 * @param signum
+	 * @param value
+	 * @param unchecked
+	 * @deprecated internal use only
 	 */
-	public Binary(int signum, BigDecimal value) {
+	@Deprecated
+	public Binary(int signum, BigDecimal value, boolean unchecked) {
 		if(signum != -1 && signum != 1)
 			throw new IllegalArgumentException("Signum out of range");
 		
@@ -59,6 +59,12 @@ public abstract class Binary<T extends Binary<T>> extends Number implements Comp
 		
 		if(value.compareTo(BigDecimal.ZERO) != 0 && signum != value.signum())
 			throw new IllegalArgumentException("Signum mismatch");
+		
+		if(unchecked) {
+			this.value = value;
+			this.type = BinaryType.FINITE;
+			return;
+		}
 		
 		if(value.compareTo(getCodec().getMaxValue().getBigDecimal()) > 0) { // overflow => Infinity
 			this.value = null;
@@ -74,6 +80,20 @@ public abstract class Binary<T extends Binary<T>> extends Number implements Comp
 			this.value = value;
 			this.type = BinaryType.FINITE;
 		}
+	}
+	
+	/**
+	 * Creates a new binary floating-point number with the given signum and value.
+	 * <p>If the value exceeds the {@link BinaryCodec#getMaxValue() maximum value},
+	 * the value becomes {@link #isInfinity() Infinity} with the respective sign.
+	 * <p>If the value is less than the {@link BinaryCodec#getMinSubnormalValue() minimum value},
+	 * the values becomes {@code 0}.
+	 * 
+	 * @param signum the signum (either {@code -1}, {@code 0}, or {@code 1}; must be the same as {@link BigDecimal#signum() the value's signum})
+	 * @param value the value
+	 */
+	public Binary(int signum, BigDecimal value) {
+		this(signum, value, false);
 	}
 	
 	/**
@@ -93,7 +113,7 @@ public abstract class Binary<T extends Binary<T>> extends Number implements Comp
 		this.type = type;
 		this.value = null;
 	}
-
+	
 	/**
 	 * Returns the {@link BigDecimal} stored. Fails if the number is not {@link #isFinite() finite}.
 	 * 
@@ -230,7 +250,9 @@ public abstract class Binary<T extends Binary<T>> extends Number implements Comp
 	 * @return the binary representation
 	 */
 	public BigInteger encode() {
-		return getCodec().encode((T) this);
+		return encoded == null
+			? encoded = getCodec().encode((T) this)
+			: encoded;
 	}
 	
 	/** {@inheritDoc} */
@@ -266,12 +288,11 @@ public abstract class Binary<T extends Binary<T>> extends Number implements Comp
 				? Double.POSITIVE_INFINITY
 				: Double.NEGATIVE_INFINITY;
 			
-		case SIGNALING_NAN:
-		case QUIET_NAN:
-			return Double.NaN;
+		case FINITE:
+			return value.doubleValue();
 			
 		default:
-			return value.doubleValue();
+			return Double.NaN;
 		}
 	}
 

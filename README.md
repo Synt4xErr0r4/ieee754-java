@@ -27,7 +27,7 @@ In order to use the code, you can either [download the jar](https://github.com/S
 </dependency>
 ```
 
-The library itself is located in the module `ieee754`.
+The library itself is located in the module `ieee754java`.
 
 ## Usage
 
@@ -35,11 +35,12 @@ The library itself is located in the module `ieee754`.
 
 There are several predefined types:
 
-- `Binary32` (`float`)
-- `Binary64` (`double`)
-- `Binary80` (x87 extended precision, like `long double` in C on Linux)
-- `Binary128`
-- `Binary256`
+- `Binary16` (half precision)
+- `Binary32` (single precision, like `float`)
+- `Binary64` (double precision, like `double`)
+- `Binary80` (x87 extended precision, like C's `long double` on Linux)
+- `Binary128` (quadruple precision)
+- `Binary256` (octuple precision)
 - `Binary512`*
 - `Binary1024`*
 - `Binary2048`*
@@ -95,9 +96,10 @@ When extending `Binary<T>`, you need to implement the method `getCodec`, which r
 
 Take a look at the various predefined types to see how they are implemented.
 
-### Note
+### Rounding
 
-Probably due to rounding errors, `Double.MIN_VALUE` and `Binary64.MIN_VALUE` do *not* have the same value. Trying to encode `Double.MIN_VALUE` will result in an binary representation for the value `0`.
+Not all numbers can be encoded with full precision. In such cases, rounding is performed.
+The rounding mode used in this library is the default rounding mode for IEEE 754 floating points: round to nearest, ties to even.
 
 ## Documentation
 

@@ -36,13 +36,27 @@ public interface BinaryFactory<T extends Binary<T>> {
 	 * Creates a new {@link Binary}
 	 * 
 	 * @param signum the signum (either -1, 0, or 1)
+	 * @param value the value
+	 * @return the new Binary
+	 * @deprecated internal use only
+	 */
+	@Deprecated
+	T createUnchecked(int signum, BigDecimal value);
+
+	/**
+	 * Creates a new {@link Binary}
+	 * 
+	 * @param signum the signum (either -1, 0, or 1)
 	 * @param type the type
 	 * @return the new Binary
 	 */
 	T create(int signum, BinaryType type);
 
 	/**
-	 * Creates a new {@link Binary}
+	 * Creates a new {@link Binary}.
+	 * <p>
+	 * The primary use of this function is for creating signed zeros.
+	 * In all other cases, {@link #create(BigDecimal)} should be preferred.
 	 * 
 	 * @param signum the signum (either -1, 0, or 1)
 	 * @param value the value
@@ -51,7 +65,7 @@ public interface BinaryFactory<T extends Binary<T>> {
 	T create(int signum, BigDecimal value);
 
 	/**
-	 * Creates a new {@link Binary} with the signum derived from the {@link BigDecimal#signum() BigDecimal}
+	 * Creates a new {@link Binary}
 	 * 
 	 * @param value the value
 	 * @return the new Binary
@@ -62,7 +76,7 @@ public interface BinaryFactory<T extends Binary<T>> {
 	}
 
 	/**
-	 * Creates a new Binary, with the signum derived from the BigDecimal
+	 * Creates a new {@link Binary}.
 	 * 
 	 * @param value the value
 	 * @return the new Binary

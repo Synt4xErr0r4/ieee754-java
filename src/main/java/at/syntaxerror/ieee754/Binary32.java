@@ -30,7 +30,7 @@ import java.math.BigDecimal;
  * @author Thomas Kasper
  * 
  */
-@SuppressWarnings("serial")
+@SuppressWarnings({ "serial", "deprecation" })
 public final class Binary32 extends Binary<Binary32> {
 	
 	public static final BinaryFactory<Binary32> FACTORY = new Binary32Factory();
@@ -44,6 +44,10 @@ public final class Binary32 extends Binary<Binary32> {
 	public static final Binary32 MAX_VALUE = CODEC.getMaxValue();
 	public static final Binary32 MIN_VALUE = CODEC.getMinSubnormalValue();
 	public static final Binary32 MIN_NORMAL = CODEC.getMinValue();
+
+	private Binary32(int signum, BigDecimal value, boolean unchecked) {
+		super(signum, value, true);
+	}
 	
 	private Binary32(int signum, BigDecimal value) {
 		super(signum, value);
@@ -60,6 +64,11 @@ public final class Binary32 extends Binary<Binary32> {
 	}
 	
 	private static class Binary32Factory implements BinaryFactory<Binary32> {
+		
+		@Override
+		public Binary32 createUnchecked(int signum, BigDecimal value) {
+			return new Binary32(signum, value, true);
+		}
 		
 		@Override
 		public Binary32 create(int signum, BigDecimal value) {

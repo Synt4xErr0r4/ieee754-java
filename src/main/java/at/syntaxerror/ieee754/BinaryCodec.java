@@ -43,12 +43,10 @@ import lombok.NonNull;
 @SuppressWarnings("unchecked")
 public final class BinaryCodec<T extends Binary<T>> {
 
-	private static final MathContext BIGCTX = new MathContext(607, RoundingMode.HALF_EVEN);
-	private static final MathContext CTX = MathContext.UNLIMITED;
 	private static final MathContext FLOOR = new MathContext(0, RoundingMode.FLOOR);
 	
 	private static final BigDecimal TWO = BigDecimal.valueOf(2);
-	private static final BigDecimal LOG10_2 = BigDecimalMath.log10(TWO, BIGCTX);
+	private static final BigDecimal LOG10_2 = BigDecimalMath.log10(TWO, new MathContext(604, RoundingMode.HALF_EVEN));
 
 	private static final int MEMOIZE_POS_INF = 0;
 	private static final int MEMOIZE_NEG_INF = 1;
@@ -63,7 +61,7 @@ public final class BinaryCodec<T extends Binary<T>> {
 	private static final int MEMOIZE_POWMANT = 10;
 	
 	private final int exponent;
-	private final int mantissa;
+	private final int significand;
 	private final boolean implicit;
 	
 	private final BinaryFactory<T> factory;
@@ -73,19 +71,19 @@ public final class BinaryCodec<T extends Binary<T>> {
 	/**
 	 * Creates a new binary codec
 	 * 
-	 * @param mantissa the number of mantissa bits ({@code > 0})
+	 * @param significand the number of significand bits ({@code > 0})
 	 * @param exponent the number of exponent bits ({@code > 0}, {@code < 32})
-	 * @param implicit whether there is an implicit mantissa bit
+	 * @param implicit whether there is an implicit significand bit
 	 * @param factory the factory for creating {@link Binary} objects
 	 */
-	public BinaryCodec(int exponent, int mantissa, boolean implicit, @NonNull BinaryFactory<T> factory) {
+	public BinaryCodec(int exponent, int significand, boolean implicit, @NonNull BinaryFactory<T> factory) {
 		if(exponent < 1) throw new IllegalArgumentException("Illegal non-positive exponent size");
-		if(mantissa < 1) throw new IllegalArgumentException("Illegal non-positive mantissa size");
+		if(significand < 1) throw new IllegalArgumentException("Illegal non-positive significand size");
  
 		if(exponent > 31) throw new IllegalArgumentException("Exponent size is too big");
 
 		this.exponent = exponent;
-		this.mantissa = mantissa;
+		this.significand = significand;
 		this.implicit = implicit;
 		this.factory = factory;
 	}
@@ -109,12 +107,12 @@ public final class BinaryCodec<T extends Binary<T>> {
 	}
 	
 	/**
-	 * Returns the number of bits occupied by the mantissa
+	 * Returns the number of bits occupied by the significand
 	 * 
-	 * @return the number of mantissa's bits 
+	 * @return the number of significand's bits 
 	 */
-	public int getMantissaBits() {
-		return mantissa;
+	public int getSignificandBits() {
+		return significand;
 	}
 	
 	/**
@@ -147,133 +145,131 @@ public final class BinaryCodec<T extends Binary<T>> {
 			if(value.isNegativeInfinity())
 				return getNegativeInfinity();
 			
+			assert false : "unreachable";
 		}
 		
+		if(value.isZero())
+			return getZero(value.getSignum());
+		
 		BigDecimal bigdec = value.getBigDecimal();
-		
-		if(bigdec.compareTo(BigDecimal.ZERO) == 0)
-			return getZero(0);
-		
-		BigDecimal absdec = bigdec.abs();
 		
 		// determine sign bit
 		int sign = bigdec.signum() == -1 ? 1 : 0;
 		
-		if(absdec.compareTo(getMaxValue().getBigDecimal()) > 0) // out of range => Infinity
-			return sign == -1
-				? getNegativeInfinity()
-				: getPositiveInfinity();
-		
-		if(absdec.compareTo(getMinSubnormalValue().getBigDecimal()) < 0) // out of range => 0
-			return getZero(sign);
+		bigdec = bigdec.abs();
 		
 		// strip fractional part
-		BigInteger mantissa = bigdec.toBigInteger();
+		BigInteger significand = bigdec.toBigInteger();
 		
 		// strip integer part
-		BigDecimal fraction = bigdec.subtract(new BigDecimal(mantissa, CTX), CTX).abs();
+		BigDecimal fraction = bigdec.subtract(new BigDecimal(significand)).abs();
 		
 		// remove sign
-		mantissa = mantissa.abs();
+		significand = significand.abs();
 
-		// unbiased exponent, or 0 if exponent would be negative
-		int exp = mantissa.bitLength();
+		// unbiased exponent, or -1 if exponent would be negative
+		int exp = significand.bitLength() - 1;
 		
-		boolean subnormal = false;
+		boolean negative = exp < 0;
 		
-		if(absdec.compareTo(getMinValue().getBigDecimal()) < 0) {
-			// subnormal
-			
-			subnormal = true;
-			exp = 0;
-			
-			// remove factor 2^-e_min
-			fraction = fraction.multiply(
-				BigDecimalMath.pow(
-					BigDecimal.TWO,
-					1 - getExponentRange().getKey(),
-					BIGCTX
-				),
-				BIGCTX
-			);
-		}
+		int zeros = 0;
 		
-		int n = 0;
+		final int off = getOffset();
+		final int eMin = getExponentRange().getKey();
 		
-		/* - left-shift the mantissa by 1
+		/* - left-shift the significand by 1
 		 * - multiply the fraction by two
-		 * - bit-or the mantissa with the integer part of result (0 or 1)
+		 * - bit-or the significand with the integer part of result (0 or 1)
 		 * - remove the integer part from the result
-		 * - repeat until the fraction is zero, or all mantissa bits are used up
+		 * - repeat until the fraction is zero, or all significand bits are used up
 		 * 
 		 * while(fraction != 0) {
-		 * 	   mantissa <<= 1;
+		 * 	   significand <<= 1;
 		 *     fraction *= 2;
-		 *     mantissa |= (int) fraction;
+		 *     significand |= (int) fraction;
 		 *     fraction -= (int) fraction;
 		 * }
 		 */
 		while(fraction.compareTo(BigDecimal.ZERO) != 0) {
-			fraction = fraction.multiply(TWO, CTX);
+			fraction = fraction.multiply(TWO);
 			
 			int integerPart = fraction.intValue();
+			int bitCount = significand.bitLength();
+			int significandLength = bitCount;
+			
+			// when there are more zeros than -e_min, the number is subnormal, and the leading zeros are part of the significand
+			if(zeros > -eMin)
+				significandLength += zeros + eMin;
 			
 			// max number of bits reached
-			if(n > this.mantissa - exp) {
+			if(significandLength > this.significand + off) {
 				
-				// if next bit would have been a 1, round up
-				if(integerPart == 1) {
+				// Round to nearest, ties to even
+				
+				boolean guard = significand.testBit(0);
+				boolean round = integerPart == 1;
+				boolean sticky = fraction.compareTo(BigDecimal.ONE) != 0;
+				
+				if((guard && round) || (round && sticky)) { // round up
+					int bits = significand.bitLength();
 					
-					// don't round if last bit was 0 and next bits would have been 1 without any other following non-zero bits (1000000...)
-					if(!mantissa.testBit(0) && fraction.compareTo(BigDecimal.ONE) == 0)
-						break;
-					
-					mantissa = mantissa.add(BigInteger.ONE);
+					significand = significand.add(BigInteger.ONE);
+
+					if(bits != significand.bitLength()) { // overflow occured, adjust exponent
+						
+						significand = significand.clearBit(bits); // clear overflown bit					
+						++exp;
+						
+						// if exponent is all 1s now, return Infinity
+						if(exp == mask(this.exponent).intValue())
+							return sign == -1
+								? getNegativeInfinity()
+								: getPositiveInfinity();
+					}
 				}
 				
 				break;
 			}
-			
-			++n;
 
-			mantissa = mantissa.shiftLeft(1);
+			significand = significand.shiftLeft(1);
 
 			if(integerPart == 1) {
-				mantissa = mantissa.or(BigInteger.ONE);
-				fraction = fraction.subtract(BigDecimal.ONE, CTX);
+				significand = significand.or(BigInteger.ONE);
+				fraction = fraction.subtract(BigDecimal.ONE);
 			}
+			else if(bitCount == 0)
+				++zeros;
 		}
 		
-		if(subnormal)
-			return mantissa.compareTo(BigInteger.ZERO) == 0
+		int len = significand.bitLength();
+		
+		// fix exponent if < 1
+		if(negative)
+			exp -= zeros;
+		
+		if(exp < eMin) // subnormal
+			return len == 0
 				? getZero(sign)
 				: BigInteger.valueOf(sign)
-					.shiftLeft(this.exponent + this.mantissa)
-					.or(mantissa.shiftLeft(this.mantissa - n));
-		
-		// fix exponent (negative exponent)
-		if(exp == 0)
-			exp = mantissa.bitLength() - n - 1;
-		else --exp;
+					.shiftLeft(this.exponent + this.significand + off)
+					.or(significand.shiftLeft(this.significand - eMin + exp - len + 2));
 
-		int off = 0;
-		
-		// clear most significant bit if it is implicit
-		if(implicit) {
-			int bit = mantissa.bitLength() - 1;
-			
-			if(bit >= 0)
-				mantissa = mantissa.clearBit(bit);
-		}
-		else off = 1;
-		
-		return BigInteger.valueOf(sign) 
+		// clear most significant bit if number is implicit
+		if(implicit)
+			significand = significand.clearBit(len - 1);
+
+		BigInteger result = BigInteger.valueOf(sign) 
 			// add bias to exponent
 			.shiftLeft(this.exponent)
 			.or(BigInteger.valueOf(exp + getBias()))
-			// align mantissa to the left
-			.shiftLeft(this.mantissa)
-			.or(mantissa.shiftLeft(this.mantissa - n - exp - off));
+			// align significand to the left
+			.shiftLeft(this.significand + off)
+			.or(significand.shiftLeft(this.significand - len + 1));
+		
+		if(!implicit)
+			result = result.or(BigInteger.ONE.shiftLeft(this.significand));
+		
+		return result;
 	}
 	
 	/**
@@ -282,12 +278,13 @@ public final class BinaryCodec<T extends Binary<T>> {
 	 * @param value the byte representation
 	 * @return the decoded floating point number
 	 */
+	@SuppressWarnings("deprecation")
 	public T decode(BigInteger value) {
 		// extract sign (most significant bit)
 		boolean sign = isNegative(value);
 		
-		// extract mantissa
-		BigInteger mantissa = getMantissa(value);
+		// extract significand
+		BigInteger significand = getFullSignificand(value);
 		
 		// extract (biased) exponent
 		int exponent = getExponent(value).intValue();
@@ -299,11 +296,11 @@ public final class BinaryCodec<T extends Binary<T>> {
 		
 		// exponent is all 0s => signed zero, subnormals
 		if(exponent == 0) {
-			// mantissa == 0 => signed zero
-			if(mantissa.compareTo(BigInteger.ZERO) == 0)
-				return factory.create(BigDecimal.ZERO); // BigDecimal doesn't have signed zeros
+			// significand == 0 => signed zero
+			if(significand.compareTo(BigInteger.ZERO) == 0)
+				return factory.create(sign ? -1 : +1, BigDecimal.ZERO);
 			
-			// mantissa != 0 => subnormal
+			// significand != 0 => subnormal
 			exponent = 1 - bias;
 			subnormal = true;
 			
@@ -314,50 +311,43 @@ public final class BinaryCodec<T extends Binary<T>> {
 		else if(exponent == mask(this.exponent).intValue()) {
 			// BigDecimal does have neither infinity nor NaN
 			
-			int signum = sign ? 1 : -1;
+			int signum = sign ? -1 : +1;
 			
-			if(mantissa.compareTo(BigInteger.ZERO) == 0) // mantissa is zero => infinity
+			if(isInfinity(value)) // significand is zero => infinity
 				return factory.create(signum, BinaryType.INFINITE);
 			
-			return factory.create( // mantissa is not zero => NaN
+			return factory.create( // significand is not zero => NaN
 				signum,
-				mantissa.testBit(this.mantissa - 1)
-					? BinaryType.SIGNALING_NAN // MSB of mantissa is 1 => sNaN
-					: BinaryType.QUIET_NAN		// MSB of mantissa is 0 => qNaN
+				isSignalingNaN(value)
+					? BinaryType.SIGNALING_NAN // MSB of significand is 1 => sNaN
+					: BinaryType.QUIET_NAN		// MSB of significand is 0 => qNaN
 			); 
 		}
 		
 		// make exponent unbiased
 		else exponent -= bias;
 		
-		// integer part's offset. offset is decreased by 1 when most significant bit is implicit
-		int off = this.mantissa - exponent - (implicit ? 0 : 1);
+		BigDecimal result = BigDecimal.ZERO;
 		
-		// extract integer part from mantissa
-		BigInteger integer = mantissa.shiftRight(off);
-		
-		BigDecimal result = null;
-		
-		if(implicit && !subnormal) { // add implicit bit, unless subnormal
-			if(exponent < 0) // add 1/(2^(-exponent)) [effectively equal to 2^exponent]
-				result = new BigDecimal(integer, CTX)
-					.add(pow2negative(-exponent), CTX);
-			
-			// add 2^exponent
-			else integer = integer.or(BigInteger.ONE.shiftLeft(exponent));
+		if(implicit) { // add implicit bit, unless subnormal
+			if(!subnormal)
+				result = result.add(BigDecimal.ONE);
 		}
 		
-		if(result == null)
-			result = new BigDecimal(integer, CTX);
-
-		for(int i = 0; i < off; ++i)
-			if(mantissa.testBit(off - i - 1)) // if bit is set, add appropriate fraction
-				result = result.add(pow2negative(i + 1), CTX);
+		else if(significand.testBit(this.significand)) // add explicit bit
+			result = result.add(BigDecimal.ONE);
+		
+		for(int i = 0; i < this.significand; ++i)
+			if(significand.testBit(this.significand - i - 1)) // if bit is set, add appropriate fraction
+				result = result.add(pow2(-i - 1));
+		
+		// scale according to exponent
+		result = result.multiply(pow2(exponent));
 		
 		if(sign) // add sign
-			result = result.negate(CTX);
+			result = result.negate();
 		
-		return factory.create(result);
+		return factory.createUnchecked(sign ? -1 : +1, result);
 	}
 	
 	// create a bit mask with n bits set (e.g. n=4 returns 0b1111)
@@ -365,26 +355,35 @@ public final class BinaryCodec<T extends Binary<T>> {
 		return BigInteger.ONE.shiftLeft(n).subtract(BigInteger.ONE);
 	}
 
-	// computes 2^-n where n is positive
-	private BigDecimal pow2negative(int n) {
-		return BigDecimalMath.pow(BigDecimal.TWO, -n, BIGCTX);
-		// return BigDecimal.ONE.divide(new BigDecimal(BigInteger.ONE.shiftLeft(n)), getDecimalDigits() * 2, RoundingMode.HALF_UP);
+	// computes 2^n
+	private BigDecimal pow2(int n) {
+		if(n == 0)
+			return BigDecimal.ONE;
+		
+		if(n < 0)
+			return BigDecimal.ONE.divide(pow2(-n));
+		
+		return BigDecimal.TWO.pow(n);
 	}
 	
 	// computes 2^(e_min-1)
 	private BigDecimal pow2exp1() {
 		return memoize(
 			MEMOIZE_POWEXP1,
-			() -> pow2negative(1 - getExponentRange().getKey())
+			() -> pow2(getExponentRange().getKey() - 1)
 		);
 	}
 	
-	// computes 2^-mantissa
+	// computes 2^-significand
 	private BigDecimal pow2mant() {
 		return memoize(
 			MEMOIZE_POWMANT,
-			() -> pow2negative(mantissa)
+			() -> pow2(-significand)
 		);
+	}
+	
+	private int getOffset() {
+		return implicit ? 0 : 1;
 	}
 	
 	/**
@@ -413,17 +412,29 @@ public final class BinaryCodec<T extends Binary<T>> {
 	 * @return the exponent
 	 */
 	public BigInteger getExponent(BigInteger value) {
-		return value.shiftRight(mantissa).and(mask(exponent));
+		return value.shiftRight(significand + getOffset()).and(mask(exponent));
 	}
 
 	/**
-	 * Returns the value's mantissa part
+	 * Returns the value's significand part.
+	 * <p>If there is an explicit bit, it is not included
 	 * 
 	 * @param value the value
-	 * @return the mantissa
+	 * @return the significand
 	 */
-	public BigInteger getMantissa(BigInteger value) {
-		return value.and(mask(mantissa));
+	public BigInteger getSignificand(BigInteger value) {
+		return value.and(mask(significand));
+	}
+
+	/**
+	 * Returns the value's significand part.
+	 * <p>If there is an explicit bit, it is included
+	 * 
+	 * @param value the value
+	 * @return the significand
+	 */
+	public BigInteger getFullSignificand(BigInteger value) {
+		return value.and(mask(significand + getOffset()));
 	}
 
 	/**
@@ -443,7 +454,7 @@ public final class BinaryCodec<T extends Binary<T>> {
 	 * @return whether the value is negative
 	 */
 	public boolean isNegative(BigInteger value) {
-		return value.testBit(exponent + mantissa);
+		return value.testBit(exponent + significand + getOffset());
 	}
 
 	/**
@@ -456,7 +467,7 @@ public final class BinaryCodec<T extends Binary<T>> {
 		if(getExponent(value).compareTo(mask(exponent)) != 0)
 			return false;
 
-		return getMantissa(value).compareTo(BigInteger.ZERO) == 0;
+		return getSignificand(value).compareTo(BigInteger.ZERO) == 0;
 	}
 
 	/**
@@ -488,9 +499,8 @@ public final class BinaryCodec<T extends Binary<T>> {
 		return memoize(
 			MEMOIZE_POS_INF,
 			() -> BigInteger.ZERO
-				.shiftLeft(exponent)
-				.or(mask(exponent))
-				.shiftLeft(mantissa)
+				.or(mask(exponent + getOffset()))
+				.shiftLeft(significand)
 		);
 	}
 
@@ -503,9 +513,9 @@ public final class BinaryCodec<T extends Binary<T>> {
 		return memoize(
 			MEMOIZE_NEG_INF,
 			() -> BigInteger.ONE
-				.shiftLeft(exponent)
-				.or(mask(exponent))
-				.shiftLeft(mantissa)
+				.shiftLeft(exponent + getOffset())
+				.or(mask(exponent + getOffset()))
+				.shiftLeft(significand)
 		);
 	}
 
@@ -519,7 +529,7 @@ public final class BinaryCodec<T extends Binary<T>> {
 		if(getExponent(value).compareTo(mask(exponent)) != 0)
 			return false;
 		
-		return getMantissa(value).compareTo(BigInteger.ZERO) != 0;
+		return getSignificand(value).compareTo(BigInteger.ZERO) != 0;
 	}
 
 	/**
@@ -530,7 +540,7 @@ public final class BinaryCodec<T extends Binary<T>> {
 	 */
 	public boolean isQuietNaN(BigInteger value) {
 		return isNaN(value)
-			&& getMantissa(value).testBit(mantissa - 1);
+			&& getSignificand(value).testBit(significand - 1);
 	}
 	
 	/**
@@ -541,7 +551,7 @@ public final class BinaryCodec<T extends Binary<T>> {
 	 */
 	public boolean isSignalingNaN(BigInteger value) {
 		return isNaN(value)
-			&& !getMantissa(value).testBit(mantissa - 1);
+			&& !getSignificand(value).testBit(significand - 1);
 	}
 	
 	/**
@@ -552,11 +562,10 @@ public final class BinaryCodec<T extends Binary<T>> {
 	 */
 	public BigInteger getQuietNaN(int signum) {
 		return BigInteger.ZERO
-			.shiftLeft(exponent)
-			.or(mask(exponent))
+			.or(mask(exponent + getOffset()))
 			.shiftLeft(1)
 			.or(BigInteger.ONE)
-			.shiftLeft(mantissa - 1)
+			.shiftLeft(significand - 1)
 			.or(BigInteger.ONE)
 			.multiply(BigInteger.valueOf(signum));
 	}
@@ -569,24 +578,20 @@ public final class BinaryCodec<T extends Binary<T>> {
 	 */
 	public BigInteger getSignalingNaN(int signum) {
 		return BigInteger.ZERO
-			.shiftLeft(exponent)
-			.or(mask(exponent))
-			.shiftLeft(mantissa)
+			.or(mask(exponent + getOffset()))
+			.shiftLeft(significand)
 			.or(BigInteger.ONE)
 			.multiply(BigInteger.valueOf(signum));
 	}
 
 	/**
-	 * Returns {@code NaN} ({@code qNaN} on most processor; with all mantissa bits set)
+	 * Returns {@code NaN} ({@code qNaN} on most processor; with all significand bits set)
 	 * 
 	 * @return {@code NaN}
 	 */
 	public BigInteger getNaN(int signum) {
 		return BigInteger.ZERO
-			.shiftLeft(exponent)
-			.or(mask(exponent))
-			.shiftLeft(mantissa)
-			.or(mask(mantissa))
+			.or(mask(exponent + significand + getOffset()))
 			.multiply(BigInteger.valueOf(signum));
 	}
 
@@ -598,7 +603,7 @@ public final class BinaryCodec<T extends Binary<T>> {
 	public BigInteger getZero(int signum) {
 		return signum == -1
 			? BigInteger.ONE
-				.shiftLeft(exponent + mantissa)
+				.shiftLeft(exponent + significand + getOffset())
 			: BigInteger.ZERO;
 	}
 	
@@ -607,11 +612,12 @@ public final class BinaryCodec<T extends Binary<T>> {
 	 * 
 	 * @return the smallest postive value
 	 */
+	@SuppressWarnings("deprecation")
 	public T getMinSubnormalValue() {
 		// 2^(e_min - 1) * 2^-p 	[e_min < 0]
 		return memoize(
 			MEMOIZE_SMINVAL,
-			() -> factory.create(pow2exp1().multiply(pow2mant()))
+			() -> factory.createUnchecked(1, pow2exp1().multiply(pow2mant()))
 		);
 	}
 	
@@ -633,20 +639,16 @@ public final class BinaryCodec<T extends Binary<T>> {
 	 * 
 	 * @return the largest value
 	 */
+	@SuppressWarnings("deprecation")
 	public T getMaxValue() {
 		// (2 - 2^-p) * 2^e_max 	[e_max > 0]
 		return memoize(
 			MEMOIZE_MAX_VAL,
-			() -> factory.create(
+			() -> factory.createUnchecked(
+				1,
 				BigDecimal.TWO
 					.subtract(pow2mant())
-					.multiply(
-						BigDecimalMath.pow(
-							BigDecimal.TWO,
-							getExponentRange().getValue() - 1,
-							BIGCTX
-						)
-					)
+					.multiply(pow2(getExponentRange().getValue() - 1))
 			)
 		);
 	}
@@ -662,10 +664,10 @@ public final class BinaryCodec<T extends Binary<T>> {
 			() -> {
 				BigInteger rawOne = BigInteger.ZERO
 					.or(mask(exponent - 1))
-					.shiftLeft(mantissa);
+					.shiftLeft(significand + getOffset());
 				
 				if(!implicit)
-					rawOne = rawOne.or(BigInteger.ONE.shiftLeft(mantissa - 1));
+					rawOne = rawOne.or(BigInteger.ONE.shiftLeft(significand - 1 + getOffset()));
 				
 				// smallest number greater than 1
 				BigDecimal one = decode(rawOne.or(BigInteger.ONE)).getBigDecimal();
@@ -708,7 +710,7 @@ public final class BinaryCodec<T extends Binary<T>> {
 				
 				return Map.entry(
 					min.precision() - min.scale() - 1, // ceil(log10(min))
-					max.precision() - max.scale() - 1  // ceil(log10(max))
+					max.precision() - max.scale() - 1  // floor(log10(max))
 				);
 			}
 		);
@@ -723,7 +725,8 @@ public final class BinaryCodec<T extends Binary<T>> {
 		// floor( (p - 1) * log10(b) )
 		return memoize(
 			MEMOIZE_DECDIGS,
-			() -> BigDecimal.valueOf(mantissa - 1).multiply(LOG10_2).round(FLOOR).intValue()
+			() -> BigDecimal.valueOf(significand - 1 + getOffset())
+				.multiply(LOG10_2).round(FLOOR).intValue()
 		);
 	}
 	

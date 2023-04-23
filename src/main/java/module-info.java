@@ -1,4 +1,6 @@
-/* MIT License
+/** 
+ * <code>
+ * MIT License
  * 
  * Copyright (c) 2023 Thomas Kasper
  * 
@@ -19,16 +21,16 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
- */
-/**
+ * </code>
+ *
  * A Java 19 library for converting between IEEE 754 binary floating-point numbers and Java's {@link java.math.BigDecimal BigDecimal}
  * 
  * @author Thomas Kasper
  *
  */
-module ieee754 {
+module ieee754java {
 	exports at.syntaxerror.ieee754;
 
-	requires ch.obermuhlner.math.big;
 	requires lombok;
+	requires ch.obermuhlner.math.big;
 }
