@@ -253,7 +253,7 @@ public abstract class Floating<T extends Floating<T>> extends Number implements 
 		if(type != FloatingType.FINITE)
 			throw new UnsupportedOperationException("Cannot convert non-finite number to integer");
 		
-		return (int) intValue();
+		return (int) longValue();
 	}
 
 	/** {@inheritDoc} */

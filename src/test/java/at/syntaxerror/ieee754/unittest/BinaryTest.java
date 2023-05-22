@@ -342,24 +342,27 @@ class BinaryTest {
 				BigInteger bigint = RANDOM.nextBoolean() ? BigInteger.ONE : BigInteger.ZERO;
 				
 				bigint = bigint.shiftLeft(exp) // random exponent
-					.or(BigInteger.valueOf(RANDOM.nextLong(0, 1L << exp - 1)));
+					.or(BigInteger.valueOf(RANDOM.nextLong(0, (1L << exp) - 1)));
 				
-				if(!codec.isImplicit()) // add explicit bit
+				// add explicit bit so that the number is normalized. reencoding the number always yields a normalized number and the encodings would not match otherwise 
+				if(!codec.isImplicit())
 					bigint = bigint.shiftLeft(1)
-						.or(RANDOM.nextBoolean() ? BigInteger.ONE : BigInteger.ZERO);
-				
-				for(int off = 0; off < sig; off += 64) { // random significand
-					long part = RANDOM.nextLong();
+						.or(BigInteger.ONE);
+
+				for(int off = 0; off < sig; off += 32) { // random significand
+					long part = RANDOM.nextLong() & 0xFFFFFFFFL;
 					
-					int len = sig - off * 64;
+					int len = sig - off * 32;
 					
-					if(len < 64)
+					if(len < 32)
 						part &= (1L << len) - 1L;
-					else len = 64;
+					else len = 32;
 					
 					bigint = bigint.shiftLeft(len)
 						.or(BigInteger.valueOf(part));
 				}
+				
+				assertTrue(bigint.signum() > -1);
 				
 				testReencode(codec, bigint);
 			}
