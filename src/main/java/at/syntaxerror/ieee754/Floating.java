@@ -76,10 +76,10 @@ public abstract class Floating<T extends Floating<T>> extends Number implements 
 			this.type = FloatingType.INFINITE;
 		}
 		
-		else if(value.abs().compareTo(getCodec().getMinSubnormalValue().getBigDecimal()) < 0) { // underflow => zero
-			this.value = BigDecimal.ZERO;
-			this.type = FloatingType.FINITE;
-		}
+//		else if(value.abs().compareTo(getCodec().getMinSubnormalValue().getBigDecimal()) < 0) { // underflow => zero
+//			this.value = BigDecimal.ZERO;
+//			this.type = FloatingType.FINITE;
+//		}
 		
 		else {
 			this.value = value;
@@ -253,7 +253,7 @@ public abstract class Floating<T extends Floating<T>> extends Number implements 
 		if(type != FloatingType.FINITE)
 			throw new UnsupportedOperationException("Cannot convert non-finite number to integer");
 		
-		return (int) intValue();
+		return (int) longValue();
 	}
 
 	/** {@inheritDoc} */

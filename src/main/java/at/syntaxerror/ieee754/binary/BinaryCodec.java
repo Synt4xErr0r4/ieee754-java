@@ -33,6 +33,7 @@ import java.util.function.Supplier;
 import at.syntaxerror.ieee754.FloatingCodec;
 import at.syntaxerror.ieee754.FloatingFactory;
 import at.syntaxerror.ieee754.FloatingType;
+import at.syntaxerror.ieee754.rounding.Rounding;
 import ch.obermuhlner.math.big.BigDecimalMath;
 import lombok.NonNull;
 
@@ -47,6 +48,7 @@ import lombok.NonNull;
 public final class BinaryCodec<T extends Binary<T>> extends FloatingCodec<T> {
 
 	private static final MathContext FLOOR = new MathContext(0, RoundingMode.FLOOR);
+	private static final MathContext CONTEXT = new MathContext(800);
 	
 	private static final BigDecimal TWO = BigDecimal.valueOf(2);
 	private static final BigDecimal LOG10_2 = BigDecimalMath.log10(TWO, new MathContext(604, RoundingMode.HALF_EVEN));
@@ -163,7 +165,8 @@ public final class BinaryCodec<T extends Binary<T>> extends FloatingCodec<T> {
 		BigInteger significand = bigdec.toBigInteger();
 		
 		// strip integer part
-		BigDecimal fraction = bigdec.subtract(new BigDecimal(significand)).abs();
+		BigDecimal fraction = bigdec.subtract(new BigDecimal(significand))
+			.abs().stripTrailingZeros();
 		
 		// remove sign
 		significand = significand.abs();
@@ -177,6 +180,45 @@ public final class BinaryCodec<T extends Binary<T>> extends FloatingCodec<T> {
 		
 		final int off = getOffset();
 		final int eMin = getExponentRange().getKey();
+		
+		boolean requireRounding = false;
+		boolean guard = false;
+		boolean round = false;
+		boolean sticky = false;
+		
+		if(fraction.compareTo(BigDecimal.ZERO) != 0) {
+			// skip leading zeros. this heavily improves the performance for larger types
+			
+			zeros = BigDecimalMath.log2(
+				BigDecimalMath.reciprocal(fraction, CONTEXT),
+				CONTEXT
+			).setScale(0, RoundingMode.CEILING).intValue() - 1;
+			
+			fraction = fraction.multiply(pow2(zeros)).stripTrailingZeros();
+
+			significand = significand.shiftLeft(zeros);
+			
+			int bitCount = significand.bitLength();
+			int threshold = this.significand + off;
+			
+			if(zeros > -eMin)
+				bitCount += zeros + eMin;
+			
+			if(bitCount > threshold) {
+				requireRounding = true;
+				
+				fraction = fraction.multiply(BigDecimal.TWO);
+
+				round = fraction.intValue() != 0;
+				
+				if(round)
+					fraction = fraction.subtract(BigDecimal.ONE);
+				
+				sticky = fraction.compareTo(BigDecimal.ZERO) != 0;
+				
+				fraction = BigDecimal.ZERO;
+			}
+		}
 		
 		/* - left-shift the significand by 1
 		 * - multiply the fraction by two
@@ -204,30 +246,11 @@ public final class BinaryCodec<T extends Binary<T>> extends FloatingCodec<T> {
 			
 			// max number of bits reached
 			if(significandLength > this.significand + off) {
+				requireRounding = true;
 				
-				// Round to nearest, ties to even
-				
-				boolean guard = significand.testBit(0);
-				boolean round = integerPart == 1;
-				boolean sticky = fraction.compareTo(BigDecimal.ONE) != 0;
-				
-				if((guard && round) || (round && sticky)) { // round up
-					int bits = significand.bitLength();
-					
-					significand = significand.add(BigInteger.ONE);
-
-					if(bits != significand.bitLength()) { // overflow occured, adjust exponent
-						
-						significand = significand.clearBit(bits); // clear overflown bit					
-						++exp;
-						
-						// if exponent is all 1s now, return Infinity
-						if(exp == mask(this.exponent).intValue())
-							return sign == -1
-								? getNegativeInfinity()
-								: getPositiveInfinity();
-					}
-				}
+				guard = significand.testBit(0);
+				round = integerPart == 1;
+				sticky = fraction.compareTo(BigDecimal.ONE) != 0;
 				
 				break;
 			}
@@ -240,6 +263,25 @@ public final class BinaryCodec<T extends Binary<T>> extends FloatingCodec<T> {
 			}
 			else if(bitCount == 0)
 				++zeros;
+		}
+		
+		if(requireRounding && Rounding.DEFAULT_ROUNDING.roundBinary(sign == -1, guard, round, sticky)) {
+			// round up
+			int bits = significand.bitLength();
+			
+			significand = significand.add(BigInteger.ONE);
+
+			if(bits != significand.bitLength()) { // overflow occured, adjust exponent
+				
+				significand = significand.clearBit(bits); // clear overflown bit					
+				++exp;
+				
+				// if exponent is all 1s now, return Infinity
+				if(exp == mask(this.exponent).intValue())
+					return sign == -1
+						? getNegativeInfinity()
+						: getPositiveInfinity();
+			}
 		}
 		
 		int len = significand.bitLength();
@@ -357,9 +399,12 @@ public final class BinaryCodec<T extends Binary<T>> extends FloatingCodec<T> {
 			return BigDecimal.ONE;
 		
 		if(n < 0)
-			return BigDecimal.ONE.divide(pow2(-n));
+			return BigDecimalMath.reciprocal(pow2(-n), CONTEXT);
 		
-		return BigDecimal.TWO.pow(n);
+		return new BigDecimal(
+			BigInteger.ONE.shiftLeft(n),
+			0
+		).stripTrailingZeros();
 	}
 	
 	// computes 2^(e_min-1)

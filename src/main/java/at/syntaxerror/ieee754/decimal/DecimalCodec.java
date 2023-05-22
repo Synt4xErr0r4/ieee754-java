@@ -24,7 +24,6 @@ package at.syntaxerror.ieee754.decimal;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.math.RoundingMode;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -33,6 +32,7 @@ import at.syntaxerror.ieee754.FloatingCodec;
 import at.syntaxerror.ieee754.FloatingFactory;
 import at.syntaxerror.ieee754.FloatingType;
 import at.syntaxerror.ieee754.binary.Binary;
+import at.syntaxerror.ieee754.rounding.Rounding;
 import lombok.NonNull;
 
 /**
@@ -359,12 +359,14 @@ public class DecimalCodec<T extends Decimal<T>> extends FloatingCodec<T> {
 	
 	// truncate the n least significant digits of the value
 	private BigDecimal truncateLeastSignificant(BigDecimal value, int n) {
+		BigDecimal precise = new BigDecimal(
+			value.unscaledValue()
+			.divide(BigInteger.TEN.pow(n - 1))
+		).divide(BigDecimal.TEN);
+		
 		return new BigDecimal(
-			new BigDecimal(
-				value.unscaledValue()
-					.divide(BigInteger.TEN.pow(n - 1))
-			).divide(BigDecimal.TEN)
-				.setScale(0, RoundingMode.HALF_EVEN)
+			Rounding.DEFAULT_ROUNDING
+				.roundDecimal(precise)
 				.toBigInteger(),
 			value.scale() - n
 		).stripTrailingZeros();

@@ -8,7 +8,7 @@ This library can convert `java.math.BigDecimal`s into IEEE 754 binary representa
 
 ## Getting started
 
-In order to use the code, you can either [download the jar](https://github.com/Synt4xErr0r4/ieee754-java/releases/download/2.0.0/ieee754-java-2.0.0.jar), or use the Maven dependency:
+In order to use the code, you can either [download the jar](https://github.com/Synt4xErr0r4/ieee754-java/releases/download/2.0.0/ieee754-java-2.1.0.jar), or use the Maven dependency:
 
 ```xml
 <!-- Repository -->
@@ -23,7 +23,7 @@ In order to use the code, you can either [download the jar](https://github.com/S
 <dependency>
   <groupId>at.syntaxerror</groupId>
   <artifactId>ieee754-java</artifactId>
-  <version>2.0.0</version>
+  <version>2.1.0</version>
 </dependency>
 ```
 
@@ -67,6 +67,8 @@ import at.syntaxerror.ieee754.binary.Binary32;
 Binary32 value = Binary32.FACTORY.create(3.14159);
 ```
 
+*Note: using native `float` and `double` might lead to inaccurate results due to rounding errors. It is recommended to use `BigDecimal` instead.*
+
 Now, the function `encode` in `Binary32` can be used to get the number's binary representation:
 
 ```java
@@ -89,7 +91,7 @@ The value can then be retrieved for further computations as a `BigDecimal` via t
 BigDecimal bigdec = decoded.getBigDecimal();
 ```
 
-This is applicable to all predefined types; Also, any class inheriting from `Floating<T>` (or its subclasses `Binary<T>` and `Decimal<T>`) has access to various helper methods, which are listed in the [JavaDoc](https://javadoc.syntaxerror.at/ieee754-java/latest/ieee754java/at/syntaxerror/ieee754/Floating.html).
+This is applicable to all predefined types; also, any class inheriting from `Floating<T>` (or its subclasses `Binary<T>` and `Decimal<T>`) has access to various helper methods, which are listed in the [JavaDoc](https://javadoc.syntaxerror.at/ieee754-java/latest/ieee754java/at/syntaxerror/ieee754/Floating.html).
 
 ### Decimal Encoding
 
@@ -132,12 +134,49 @@ Take a look at the various predefined types to see how they are implemented.
 
 ### Rounding
 
-Not all numbers can be encoded with full precision. In such cases, rounding is performed.
-The rounding mode used in this library is the default rounding mode for IEEE 754 floating points: round to nearest, ties to even.
+Some numbers cannot be encoded with full precision. In such cases, rounding is performed.
+
+There are five IEEE 754 rounding modes:
+
+- `TIES_EVEN`: round to nearest, ties to even
+  - rounds to the nearest value
+  - if the number falls midway, it is rounded to the nearest even value.
+- `TIES_AWAY`: round to nearest, ties away from 0
+  - rounds to the nearest value
+  - if the number falls midway, it is rounded to the nearest value above (positive numbers) or below (negative numbers).
+- `TOWARD_ZERO`: round toward 0 (aka. truncating)
+- `TOWARD_POSITIVE`: round toward +∞ (aka. rounding up, ceiling)
+- `TOWARD_NEGATIVE`: round toward -∞ (aka. rounding down, floor)
+
+The default rounding mode used for encoding is `TIES_EVEN`. This can be changed by altering the `DEFAULT_ROUNDING` field
+in the `Rounding` class, e.g.:
+
+```java
+import at.syntaxerror.ieee754.rounding.Rounding;
+
+/* ... */
+
+Rounding.DEFAULT_ROUNDING = Rounding.TOWARD_ZERO;
+```
 
 ## Documentation
 
 The JavaDoc for the latest version can be found [here](https://javadoc.syntaxerror.at/ieee754-java/latest).
+
+## Changelog
+
+### 2.1.0
+
+- Added support for different rounding modes
+- Improved performance for very small numbers
+
+### 2.0.0
+
+- Added decimal floating-point formats `Decimal32`, `Decimal64` and `Decimal128`
+
+### 1.0.0
+
+- Added binary floating-point formats `Binary16`, `Binary32`, `Binary64`, `Binary80`, `Binary128`, `Binary256`, `Binary512`, `Binary1024` and `Binary2048`
 
 ## Dependencies
 

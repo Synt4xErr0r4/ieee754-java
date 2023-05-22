@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>at.syntaxerror</groupId>
   <artifactId>ieee754-java</artifactId>
-  <version>2.0.0</version>
+  <version>2.1.0</version>
   <name>IEEE754-Java</name>
   <description>A Java 19 library for converting between IEEE 754 binary and decimal and BigDecimal</description>
   <licenses>
