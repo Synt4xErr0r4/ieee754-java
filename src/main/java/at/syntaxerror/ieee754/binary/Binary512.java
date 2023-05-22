@@ -24,6 +24,9 @@ package at.syntaxerror.ieee754.binary;
 
 import java.math.BigDecimal;
 
+import at.syntaxerror.ieee754.FloatingFactory;
+import at.syntaxerror.ieee754.FloatingType;
+
 /**
  * This class implements the IEEE 754 floating point specification for 512-bit numbers.
  * <p><b>Warning:</b> This format is not official and exists for demonstration purposes only.
@@ -32,30 +35,26 @@ import java.math.BigDecimal;
  * @author Thomas Kasper
  * 
  */
-@SuppressWarnings({ "serial", "deprecation" })
+@SuppressWarnings({ "serial" })
 public final class Binary512 extends Binary<Binary512> {
 
-	public static final BinaryFactory<Binary512> FACTORY = new Binary64Factory();
+	public static final FloatingFactory<Binary512> FACTORY = new Binary64Factory();
 	public static final BinaryCodec<Binary512> CODEC = new BinaryCodec<>(23, 488, true, FACTORY);
 
-	public static final Binary512 POSITIVE_INFINITY = new Binary512(POSITIVE, BinaryType.INFINITE);
-	public static final Binary512 NEGATIVE_INFINITY = new Binary512(NEGATIVE, BinaryType.INFINITE);
-	public static final Binary512 QUIET_NAN = new Binary512(POSITIVE, BinaryType.QUIET_NAN);
-	public static final Binary512 SIGNALING_NAN = new Binary512(POSITIVE, BinaryType.SIGNALING_NAN);
+	public static final Binary512 POSITIVE_INFINITY = new Binary512(POSITIVE, FloatingType.INFINITE);
+	public static final Binary512 NEGATIVE_INFINITY = new Binary512(NEGATIVE, FloatingType.INFINITE);
+	public static final Binary512 QUIET_NAN = new Binary512(POSITIVE, FloatingType.QUIET_NAN);
+	public static final Binary512 SIGNALING_NAN = new Binary512(POSITIVE, FloatingType.SIGNALING_NAN);
 	
 	public static final Binary512 MAX_VALUE = CODEC.getMaxValue();
 	public static final Binary512 MIN_VALUE = CODEC.getMinSubnormalValue();
 	public static final Binary512 MIN_NORMAL = CODEC.getMinValue();
 
-	private Binary512(int signum, BigDecimal value, boolean unchecked) {
-		super(signum, value, true);
-	}
-	
 	private Binary512(int signum, BigDecimal value) {
 		super(signum, value);
 	}
 
-	private Binary512(int signum, BinaryType type) {
+	private Binary512(int signum, FloatingType type) {
 		super(signum, type);
 	}
 
@@ -65,12 +64,7 @@ public final class Binary512 extends Binary<Binary512> {
 		return CODEC;
 	}
 	
-	private static class Binary64Factory implements BinaryFactory<Binary512> {
-		
-		@Override
-		public Binary512 createUnchecked(int signum, BigDecimal value) {
-			return new Binary512(signum, value, true);
-		}
+	private static class Binary64Factory implements FloatingFactory<Binary512> {
 		
 		@Override
 		public Binary512 create(int signum, BigDecimal value) {
@@ -78,7 +72,7 @@ public final class Binary512 extends Binary<Binary512> {
 		}
 		
 		@Override
-		public Binary512 create(int signum, BinaryType type) {
+		public Binary512 create(int signum, FloatingType type) {
 			return new Binary512(signum, type);
 		}
 		

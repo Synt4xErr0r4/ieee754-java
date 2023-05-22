@@ -24,36 +24,35 @@ package at.syntaxerror.ieee754.binary;
 
 import java.math.BigDecimal;
 
+import at.syntaxerror.ieee754.FloatingFactory;
+import at.syntaxerror.ieee754.FloatingType;
+
 /**
  * This class implements the x87 extended precision (80-bit) floating point specification 
  * 
  * @author Thomas Kasper
  * 
  */
-@SuppressWarnings({ "serial", "deprecation" })
+@SuppressWarnings({ "serial" })
 public final class Binary80 extends Binary<Binary80> {
 
-	public static final BinaryFactory<Binary80> FACTORY = new Binary64Factory();
+	public static final FloatingFactory<Binary80> FACTORY = new Binary64Factory();
 	public static final BinaryCodec<Binary80> CODEC = new BinaryCodec<>(15, 63, false, FACTORY);
 
-	public static final Binary80 POSITIVE_INFINITY = new Binary80(POSITIVE, BinaryType.INFINITE);
-	public static final Binary80 NEGATIVE_INFINITY = new Binary80(NEGATIVE, BinaryType.INFINITE);
-	public static final Binary80 QUIET_NAN = new Binary80(POSITIVE, BinaryType.QUIET_NAN);
-	public static final Binary80 SIGNALING_NAN = new Binary80(POSITIVE, BinaryType.SIGNALING_NAN);
+	public static final Binary80 POSITIVE_INFINITY = new Binary80(POSITIVE, FloatingType.INFINITE);
+	public static final Binary80 NEGATIVE_INFINITY = new Binary80(NEGATIVE, FloatingType.INFINITE);
+	public static final Binary80 QUIET_NAN = new Binary80(POSITIVE, FloatingType.QUIET_NAN);
+	public static final Binary80 SIGNALING_NAN = new Binary80(POSITIVE, FloatingType.SIGNALING_NAN);
 	
 	public static final Binary80 MAX_VALUE = CODEC.getMaxValue();
 	public static final Binary80 MIN_VALUE = CODEC.getMinSubnormalValue();
 	public static final Binary80 MIN_NORMAL = CODEC.getMinValue();
 
-	private Binary80(int signum, BigDecimal value, boolean unchecked) {
-		super(signum, value, true);
-	}
-	
 	private Binary80(int signum, BigDecimal value) {
 		super(signum, value);
 	}
 
-	private Binary80(int signum, BinaryType type) {
+	private Binary80(int signum, FloatingType type) {
 		super(signum, type);
 	}
 
@@ -63,12 +62,7 @@ public final class Binary80 extends Binary<Binary80> {
 		return CODEC;
 	}
 	
-	private static class Binary64Factory implements BinaryFactory<Binary80> {
-		
-		@Override
-		public Binary80 createUnchecked(int signum, BigDecimal value) {
-			return new Binary80(signum, value, true);
-		}
+	private static class Binary64Factory implements FloatingFactory<Binary80> {
 		
 		@Override
 		public Binary80 create(int signum, BigDecimal value) {
@@ -76,7 +70,7 @@ public final class Binary80 extends Binary<Binary80> {
 		}
 		
 		@Override
-		public Binary80 create(int signum, BinaryType type) {
+		public Binary80 create(int signum, FloatingType type) {
 			return new Binary80(signum, type);
 		}
 		

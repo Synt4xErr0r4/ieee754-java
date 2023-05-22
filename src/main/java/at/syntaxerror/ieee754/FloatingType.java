@@ -20,15 +20,15 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.ieee754.binary;
+package at.syntaxerror.ieee754;
 
 /**
- * This enum contains the various types of floating-point special cases a {@link Binary} can hold.
+ * This enum contains the various types of floating-point special cases a {@link Floating} can hold.
  * 
  * @author Thomas Kasper
  * 
  */
-public enum BinaryType {
+public enum FloatingType {
 
 	/** plain finite number */
 	FINITE,

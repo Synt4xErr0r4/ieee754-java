@@ -24,6 +24,9 @@ package at.syntaxerror.ieee754.binary;
 
 import java.math.BigDecimal;
 
+import at.syntaxerror.ieee754.FloatingFactory;
+import at.syntaxerror.ieee754.FloatingType;
+
 /**
  * This class implements the IEEE 754 floating point specification for 2048-bit numbers.
  * <p><b>Warning:</b> This format is not official and exists for demonstration purposes only.
@@ -32,30 +35,26 @@ import java.math.BigDecimal;
  * @author Thomas Kasper
  * 
  */
-@SuppressWarnings({ "serial", "deprecation" })
+@SuppressWarnings({ "serial" })
 public final class Binary2048 extends Binary<Binary2048> {
 
-	public static final BinaryFactory<Binary2048> FACTORY = new Binary64Factory();
+	public static final FloatingFactory<Binary2048> FACTORY = new Binary64Factory();
 	public static final BinaryCodec<Binary2048> CODEC = new BinaryCodec<>(31, 2016, true, FACTORY);
 
-	public static final Binary2048 POSITIVE_INFINITY = new Binary2048(POSITIVE, BinaryType.INFINITE);
-	public static final Binary2048 NEGATIVE_INFINITY = new Binary2048(NEGATIVE, BinaryType.INFINITE);
-	public static final Binary2048 QUIET_NAN = new Binary2048(POSITIVE, BinaryType.QUIET_NAN);
-	public static final Binary2048 SIGNALING_NAN = new Binary2048(POSITIVE, BinaryType.SIGNALING_NAN);
+	public static final Binary2048 POSITIVE_INFINITY = new Binary2048(POSITIVE, FloatingType.INFINITE);
+	public static final Binary2048 NEGATIVE_INFINITY = new Binary2048(NEGATIVE, FloatingType.INFINITE);
+	public static final Binary2048 QUIET_NAN = new Binary2048(POSITIVE, FloatingType.QUIET_NAN);
+	public static final Binary2048 SIGNALING_NAN = new Binary2048(POSITIVE, FloatingType.SIGNALING_NAN);
 	
 	public static final Binary2048 MAX_VALUE = CODEC.getMaxValue();
 	public static final Binary2048 MIN_VALUE = CODEC.getMinSubnormalValue();
 	public static final Binary2048 MIN_NORMAL = CODEC.getMinValue();
 
-	private Binary2048(int signum, BigDecimal value, boolean unchecked) {
-		super(signum, value, true);
-	}
-	
 	private Binary2048(int signum, BigDecimal value) {
 		super(signum, value);
 	}
 
-	private Binary2048(int signum, BinaryType type) {
+	private Binary2048(int signum, FloatingType type) {
 		super(signum, type);
 	}
 
@@ -65,12 +64,7 @@ public final class Binary2048 extends Binary<Binary2048> {
 		return CODEC;
 	}
 	
-	private static class Binary64Factory implements BinaryFactory<Binary2048> {
-		
-		@Override
-		public Binary2048 createUnchecked(int signum, BigDecimal value) {
-			return new Binary2048(signum, value, true);
-		}
+	private static class Binary64Factory implements FloatingFactory<Binary2048> {
 		
 		@Override
 		public Binary2048 create(int signum, BigDecimal value) {
@@ -78,7 +72,7 @@ public final class Binary2048 extends Binary<Binary2048> {
 		}
 		
 		@Override
-		public Binary2048 create(int signum, BinaryType type) {
+		public Binary2048 create(int signum, FloatingType type) {
 			return new Binary2048(signum, type);
 		}
 		

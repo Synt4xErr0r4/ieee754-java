@@ -24,36 +24,35 @@ package at.syntaxerror.ieee754.binary;
 
 import java.math.BigDecimal;
 
+import at.syntaxerror.ieee754.FloatingFactory;
+import at.syntaxerror.ieee754.FloatingType;
+
 /**
  * This class implements the IEEE 754 binary64 floating point specification 
  * 
  * @author Thomas Kasper
  * 
  */
-@SuppressWarnings({ "serial", "deprecation" })
+@SuppressWarnings({ "serial" })
 public final class Binary64 extends Binary<Binary64> {
 
-	public static final BinaryFactory<Binary64> FACTORY = new Binary64Factory();
+	public static final FloatingFactory<Binary64> FACTORY = new Binary64Factory();
 	public static final BinaryCodec<Binary64> CODEC = new BinaryCodec<>(11, 52, true, FACTORY);
 
-	public static final Binary64 POSITIVE_INFINITY = new Binary64(POSITIVE, BinaryType.INFINITE);
-	public static final Binary64 NEGATIVE_INFINITY = new Binary64(NEGATIVE, BinaryType.INFINITE);
-	public static final Binary64 QUIET_NAN = new Binary64(POSITIVE, BinaryType.QUIET_NAN);
-	public static final Binary64 SIGNALING_NAN = new Binary64(POSITIVE, BinaryType.SIGNALING_NAN);
+	public static final Binary64 POSITIVE_INFINITY = new Binary64(POSITIVE, FloatingType.INFINITE);
+	public static final Binary64 NEGATIVE_INFINITY = new Binary64(NEGATIVE, FloatingType.INFINITE);
+	public static final Binary64 QUIET_NAN = new Binary64(POSITIVE, FloatingType.QUIET_NAN);
+	public static final Binary64 SIGNALING_NAN = new Binary64(POSITIVE, FloatingType.SIGNALING_NAN);
 	
 	public static final Binary64 MAX_VALUE = CODEC.getMaxValue();
 	public static final Binary64 MIN_VALUE = CODEC.getMinSubnormalValue();
 	public static final Binary64 MIN_NORMAL = CODEC.getMinValue();
 
-	private Binary64(int signum, BigDecimal value, boolean unchecked) {
-		super(signum, value, true);
-	}
-	
 	private Binary64(int signum, BigDecimal value) {
 		super(signum, value);
 	}
 
-	private Binary64(int signum, BinaryType type) {
+	private Binary64(int signum, FloatingType type) {
 		super(signum, type);
 	}
 
@@ -63,12 +62,7 @@ public final class Binary64 extends Binary<Binary64> {
 		return CODEC;
 	}
 	
-	private static class Binary64Factory implements BinaryFactory<Binary64> {
-		
-		@Override
-		public Binary64 createUnchecked(int signum, BigDecimal value) {
-			return new Binary64(signum, value, true);
-		}
+	private static class Binary64Factory implements FloatingFactory<Binary64> {
 		
 		@Override
 		public Binary64 create(int signum, BigDecimal value) {
@@ -76,7 +70,7 @@ public final class Binary64 extends Binary<Binary64> {
 		}
 		
 		@Override
-		public Binary64 create(int signum, BinaryType type) {
+		public Binary64 create(int signum, FloatingType type) {
 			return new Binary64(signum, type);
 		}
 		

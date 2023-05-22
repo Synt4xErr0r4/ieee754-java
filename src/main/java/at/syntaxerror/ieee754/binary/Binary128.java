@@ -24,36 +24,35 @@ package at.syntaxerror.ieee754.binary;
 
 import java.math.BigDecimal;
 
+import at.syntaxerror.ieee754.FloatingFactory;
+import at.syntaxerror.ieee754.FloatingType;
+
 /**
  * This class implements the IEEE 754 binary128 floating point specification 
  * 
  * @author Thomas Kasper
  * 
  */
-@SuppressWarnings({ "serial", "deprecation" })
+@SuppressWarnings({ "serial" })
 public final class Binary128 extends Binary<Binary128> {
 
-	public static final BinaryFactory<Binary128> FACTORY = new Binary64Factory();
+	public static final FloatingFactory<Binary128> FACTORY = new Binary64Factory();
 	public static final BinaryCodec<Binary128> CODEC = new BinaryCodec<>(15, 112, true, FACTORY);
 
-	public static final Binary128 POSITIVE_INFINITY = new Binary128(POSITIVE, BinaryType.INFINITE);
-	public static final Binary128 NEGATIVE_INFINITY = new Binary128(NEGATIVE, BinaryType.INFINITE);
-	public static final Binary128 QUIET_NAN = new Binary128(POSITIVE, BinaryType.QUIET_NAN);
-	public static final Binary128 SIGNALING_NAN = new Binary128(POSITIVE, BinaryType.SIGNALING_NAN);
+	public static final Binary128 POSITIVE_INFINITY = new Binary128(POSITIVE, FloatingType.INFINITE);
+	public static final Binary128 NEGATIVE_INFINITY = new Binary128(NEGATIVE, FloatingType.INFINITE);
+	public static final Binary128 QUIET_NAN = new Binary128(POSITIVE, FloatingType.QUIET_NAN);
+	public static final Binary128 SIGNALING_NAN = new Binary128(POSITIVE, FloatingType.SIGNALING_NAN);
 	
 	public static final Binary128 MAX_VALUE = CODEC.getMaxValue();
 	public static final Binary128 MIN_VALUE = CODEC.getMinSubnormalValue();
 	public static final Binary128 MIN_NORMAL = CODEC.getMinValue();
 
-	private Binary128(int signum, BigDecimal value, boolean unchecked) {
-		super(signum, value, true);
-	}
-	
 	private Binary128(int signum, BigDecimal value) {
 		super(signum, value);
 	}
 
-	private Binary128(int signum, BinaryType type) {
+	private Binary128(int signum, FloatingType type) {
 		super(signum, type);
 	}
 
@@ -63,12 +62,7 @@ public final class Binary128 extends Binary<Binary128> {
 		return CODEC;
 	}
 	
-	private static class Binary64Factory implements BinaryFactory<Binary128> {
-		
-		@Override
-		public Binary128 createUnchecked(int signum, BigDecimal value) {
-			return new Binary128(signum, value, true);
-		}
+	private static class Binary64Factory implements FloatingFactory<Binary128> {
 		
 		@Override
 		public Binary128 create(int signum, BigDecimal value) {
@@ -76,7 +70,7 @@ public final class Binary128 extends Binary<Binary128> {
 		}
 		
 		@Override
-		public Binary128 create(int signum, BinaryType type) {
+		public Binary128 create(int signum, FloatingType type) {
 			return new Binary128(signum, type);
 		}
 		

@@ -30,6 +30,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Supplier;
 
+import at.syntaxerror.ieee754.FloatingCodec;
+import at.syntaxerror.ieee754.FloatingFactory;
+import at.syntaxerror.ieee754.FloatingType;
 import ch.obermuhlner.math.big.BigDecimalMath;
 import lombok.NonNull;
 
@@ -41,7 +44,7 @@ import lombok.NonNull;
  * 
  */
 @SuppressWarnings("unchecked")
-public final class BinaryCodec<T extends Binary<T>> {
+public final class BinaryCodec<T extends Binary<T>> extends FloatingCodec<T> {
 
 	private static final MathContext FLOOR = new MathContext(0, RoundingMode.FLOOR);
 	
@@ -64,19 +67,19 @@ public final class BinaryCodec<T extends Binary<T>> {
 	private final int significand;
 	private final boolean implicit;
 	
-	private final BinaryFactory<T> factory;
+	private final FloatingFactory<T> factory;
 	
 	private final Map<Integer, Object> memoized = new HashMap<>();
 	
 	/**
 	 * Creates a new binary codec
 	 * 
-	 * @param significand the number of significand bits ({@code > 0})
 	 * @param exponent the number of exponent bits ({@code > 0}, {@code < 32})
+	 * @param significand the number of significand bits ({@code > 0})
 	 * @param implicit whether there is an implicit significand bit
 	 * @param factory the factory for creating {@link Binary} objects
 	 */
-	public BinaryCodec(int exponent, int significand, boolean implicit, @NonNull BinaryFactory<T> factory) {
+	public BinaryCodec(int exponent, int significand, boolean implicit, @NonNull FloatingFactory<T> factory) {
 		if(exponent < 1) throw new IllegalArgumentException("Illegal non-positive exponent size");
 		if(significand < 1) throw new IllegalArgumentException("Illegal non-positive significand size");
  
@@ -86,6 +89,8 @@ public final class BinaryCodec<T extends Binary<T>> {
 		this.significand = significand;
 		this.implicit = implicit;
 		this.factory = factory;
+		
+		initialize();
 	}
 
 	private <R> R memoize(int id, Supplier<R> generator) {
@@ -124,12 +129,8 @@ public final class BinaryCodec<T extends Binary<T>> {
 		return implicit;
 	}
 	
-	/**
-	 * Encodes the floating point into its byte representation
-	 * 
-	 * @param value the floating point number
-	 * @return the encoded byte representation
-	 */
+	/** {@inheritDoc} */
+	@Override
 	public BigInteger encode(T value) {
 		if(!value.isFinite()) {
 			
@@ -271,14 +272,9 @@ public final class BinaryCodec<T extends Binary<T>> {
 		
 		return result;
 	}
-	
-	/**
-	 * Decodes the floating point's byte representation
-	 * 
-	 * @param value the byte representation
-	 * @return the decoded floating point number
-	 */
-	@SuppressWarnings("deprecation")
+
+	/** {@inheritDoc} */
+	@Override
 	public T decode(BigInteger value) {
 		// extract sign (most significant bit)
 		boolean sign = isNegative(value);
@@ -314,13 +310,13 @@ public final class BinaryCodec<T extends Binary<T>> {
 			int signum = sign ? -1 : +1;
 			
 			if(isInfinity(value)) // significand is zero => infinity
-				return factory.create(signum, BinaryType.INFINITE);
+				return factory.create(signum, FloatingType.INFINITE);
 			
 			return factory.create( // significand is not zero => NaN
 				signum,
 				isSignalingNaN(value)
-					? BinaryType.SIGNALING_NAN // MSB of significand is 1 => sNaN
-					: BinaryType.QUIET_NAN		// MSB of significand is 0 => qNaN
+					? FloatingType.SIGNALING_NAN // MSB of significand is 1 => sNaN
+					: FloatingType.QUIET_NAN		// MSB of significand is 0 => qNaN
 			); 
 		}
 		
@@ -347,7 +343,7 @@ public final class BinaryCodec<T extends Binary<T>> {
 		if(sign) // add sign
 			result = result.negate();
 		
-		return factory.createUnchecked(sign ? -1 : +1, result);
+		return factory.create(sign ? -1 : +1, result);
 	}
 	
 	// create a bit mask with n bits set (e.g. n=4 returns 0b1111)
@@ -437,32 +433,20 @@ public final class BinaryCodec<T extends Binary<T>> {
 		return value.and(mask(significand + getOffset()));
 	}
 
-	/**
-	 * Checks if the value is positive
-	 * 
-	 * @param value the value
-	 * @return whether the value is positive
-	 */
+	/** {@inheritDoc} */
+	@Override
 	public boolean isPositive(BigInteger value) {
 		return !isNegative(value);
 	}
 
-	/**
-	 * Checks if the value is negative
-	 * 
-	 * @param value the value
-	 * @return whether the value is negative
-	 */
+	/** {@inheritDoc} */
+	@Override
 	public boolean isNegative(BigInteger value) {
 		return value.testBit(exponent + significand + getOffset());
 	}
 
-	/**
-	 * Checks if the value is {@code Infinity}'s binary representation
-	 * 
-	 * @param value the value
-	 * @return whether the value is {@code Infinity}
-	 */
+	/** {@inheritDoc} */
+	@Override
 	public boolean isInfinity(BigInteger value) {
 		if(getExponent(value).compareTo(mask(exponent)) != 0)
 			return false;
@@ -470,31 +454,20 @@ public final class BinaryCodec<T extends Binary<T>> {
 		return getSignificand(value).compareTo(BigInteger.ZERO) == 0;
 	}
 
-	/**
-	 * Checks if the value is {@code +Infinity}'s binary representation
-	 * 
-	 * @param value the value
-	 * @return whether the value is {@code +Infinity}
-	 */
+	/** {@inheritDoc} */
+	@Override
 	public boolean isPositiveInfinity(BigInteger value) {
 		return isPositive(value) && isInfinity(value);
 	}
 
-	/**
-	 * Checks if the value is {@code -Infinity}'s binary representation
-	 * 
-	 * @param value the value
-	 * @return whether the value is {@code -Infinity}
-	 */
+	/** {@inheritDoc} */
+	@Override
 	public boolean isNegativeInfinity(BigInteger value) {
 		return isNegative(value) && isInfinity(value);
 	}	
-	
-	/**
-	 * Returns {@code +Infinity}'s (like {@link Double#POSITIVE_INFINITY}) binary representation
-	 * 
-	 * @return {@code +Infinity}
-	 */
+
+	/** {@inheritDoc} */
+	@Override
 	public BigInteger getPositiveInfinity() {
 		return memoize(
 			MEMOIZE_POS_INF,
@@ -504,11 +477,8 @@ public final class BinaryCodec<T extends Binary<T>> {
 		);
 	}
 
-	/**
-	 * Returns {@code -Infinity}'s (like {@link Double#NEGATIVE_INFINITY}) binary representation
-	 * 
-	 * @return {@code -Infinity}
-	 */
+	/** {@inheritDoc} */
+	@Override
 	public BigInteger getNegativeInfinity() {
 		return memoize(
 			MEMOIZE_NEG_INF,
@@ -519,12 +489,8 @@ public final class BinaryCodec<T extends Binary<T>> {
 		);
 	}
 
-	/**
-	 * Checks if the value is {@code NaN}'s binary representation
-	 * 
-	 * @param value the value
-	 * @return whether the value is {@code NaN}
-	 */
+	/** {@inheritDoc} */
+	@Override
 	public boolean isNaN(BigInteger value) {
 		if(getExponent(value).compareTo(mask(exponent)) != 0)
 			return false;
@@ -532,34 +498,22 @@ public final class BinaryCodec<T extends Binary<T>> {
 		return getSignificand(value).compareTo(BigInteger.ZERO) != 0;
 	}
 
-	/**
-	 * Checks if the value is {@code qNaN}'s binary representation
-	 * 
-	 * @param value the value
-	 * @return whether the value is {@code qNaN}
-	 */
+	/** {@inheritDoc} */
+	@Override
 	public boolean isQuietNaN(BigInteger value) {
 		return isNaN(value)
 			&& getSignificand(value).testBit(significand - 1);
 	}
-	
-	/**
-	 * Checks if the value is {@code sNaN}'s binary representation
-	 * 
-	 * @param value the value
-	 * @return whether the value is {@code sNaN}
-	 */
+
+	/** {@inheritDoc} */
+	@Override
 	public boolean isSignalingNaN(BigInteger value) {
 		return isNaN(value)
 			&& !getSignificand(value).testBit(significand - 1);
 	}
-	
-	/**
-	 * Returns {@code qNaN} binary representation (on most processors)
-	 * 
-	 * @param signum the signum
-	 * @return {@code qNaN}
-	 */
+
+	/** {@inheritDoc} */
+	@Override
 	public BigInteger getQuietNaN(int signum) {
 		return BigInteger.ZERO
 			.or(mask(exponent + getOffset()))
@@ -570,12 +524,8 @@ public final class BinaryCodec<T extends Binary<T>> {
 			.multiply(BigInteger.valueOf(signum));
 	}
 
-	/**
-	 * Returns {@code sNaN}'s binary representation (on most processors)
-	 * 
-	 * @param signum the signum
-	 * @return {@code sNaN}
-	 */
+	/** {@inheritDoc} */
+	@Override
 	public BigInteger getSignalingNaN(int signum) {
 		return BigInteger.ZERO
 			.or(mask(exponent + getOffset()))
@@ -584,48 +534,35 @@ public final class BinaryCodec<T extends Binary<T>> {
 			.multiply(BigInteger.valueOf(signum));
 	}
 
-	/**
-	 * Returns {@code NaN} ({@code qNaN} on most processor; with all significand bits set)
-	 * 
-	 * @return {@code NaN}
-	 */
+	/** {@inheritDoc} */
+	@Override
 	public BigInteger getNaN(int signum) {
 		return BigInteger.ZERO
 			.or(mask(exponent + significand + getOffset()))
 			.multiply(BigInteger.valueOf(signum));
 	}
 
-	/**
-	 * Returns (possibly negative) zero's binary representation
-	 * 
-	 * @return zero
-	 */
+	/** {@inheritDoc} */
+	@Override
 	public BigInteger getZero(int signum) {
 		return signum == -1
 			? BigInteger.ONE
 				.shiftLeft(exponent + significand + getOffset())
 			: BigInteger.ZERO;
 	}
-	
-	/**
-	 * Returns the smallest postive ({@code > 0}) subnormal value
-	 * 
-	 * @return the smallest postive value
-	 */
-	@SuppressWarnings("deprecation")
+
+	/** {@inheritDoc} */
+	@Override
 	public T getMinSubnormalValue() {
 		// 2^(e_min - 1) * 2^-p 	[e_min < 0]
 		return memoize(
 			MEMOIZE_SMINVAL,
-			() -> factory.createUnchecked(1, pow2exp1().multiply(pow2mant()))
+			() -> factory.create(1, pow2exp1().multiply(pow2mant()))
 		);
 	}
-	
-	/**
-	 * Returns the smallest postive ({@code > 0}) normalized value.
-	 * 
-	 * @return the smallest postive value
-	 */
+
+	/** {@inheritDoc} */
+	@Override
 	public T getMinValue() {
 		// 2^(e_min - 1) 	[e_min < 0]
 		return memoize(
@@ -634,17 +571,13 @@ public final class BinaryCodec<T extends Binary<T>> {
 		);
 	}
 
-	/**
-	 * Returns the largest possible value
-	 * 
-	 * @return the largest value
-	 */
-	@SuppressWarnings("deprecation")
+	/** {@inheritDoc} */
+	@Override
 	public T getMaxValue() {
 		// (2 - 2^-p) * 2^e_max 	[e_max > 0]
 		return memoize(
 			MEMOIZE_MAX_VAL,
-			() -> factory.createUnchecked(
+			() -> factory.create(
 				1,
 				BigDecimal.TWO
 					.subtract(pow2mant())
@@ -652,12 +585,9 @@ public final class BinaryCodec<T extends Binary<T>> {
 			)
 		);
 	}
-	
-	/**
-	 * Returns the difference between 1 and the smallest number greater than 1
-	 * 
-	 * @return the difference 
-	 */
+
+	/** {@inheritDoc} */
+	@Override
 	public BigDecimal getEpsilon() {
 		return memoize(
 			MEMOIZE_EPSILON,
@@ -676,12 +606,9 @@ public final class BinaryCodec<T extends Binary<T>> {
 			}
 		);
 	}
-	
-	/**
-	 * Returns the smallest and largest possible exponent
-	 * 
-	 * @return the smallest and largest exponent
-	 */
+
+	/** {@inheritDoc} */
+	@Override
 	public Map.Entry<Integer, Integer> getExponentRange() {
 		return memoize(
 			MEMOIZE_EXRANGE,

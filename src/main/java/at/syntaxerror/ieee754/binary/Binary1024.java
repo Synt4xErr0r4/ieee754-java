@@ -24,6 +24,9 @@ package at.syntaxerror.ieee754.binary;
 
 import java.math.BigDecimal;
 
+import at.syntaxerror.ieee754.FloatingFactory;
+import at.syntaxerror.ieee754.FloatingType;
+
 /**
  * This class implements the IEEE 754 floating point specification for 1024-bit numbers.
  * <p><b>Warning:</b> This format is not official and exists for demonstration purposes only.
@@ -32,30 +35,26 @@ import java.math.BigDecimal;
  * @author Thomas Kasper
  * 
  */
-@SuppressWarnings({ "serial", "deprecation" })
+@SuppressWarnings({ "serial" })
 public final class Binary1024 extends Binary<Binary1024> {
 
-	public static final BinaryFactory<Binary1024> FACTORY = new Binary64Factory();
+	public static final FloatingFactory<Binary1024> FACTORY = new Binary64Factory();
 	public static final BinaryCodec<Binary1024> CODEC = new BinaryCodec<>(27, 996, true, FACTORY);
 
-	public static final Binary1024 POSITIVE_INFINITY = new Binary1024(POSITIVE, BinaryType.INFINITE);
-	public static final Binary1024 NEGATIVE_INFINITY = new Binary1024(NEGATIVE, BinaryType.INFINITE);
-	public static final Binary1024 QUIET_NAN = new Binary1024(POSITIVE, BinaryType.QUIET_NAN);
-	public static final Binary1024 SIGNALING_NAN = new Binary1024(POSITIVE, BinaryType.SIGNALING_NAN);
+	public static final Binary1024 POSITIVE_INFINITY = new Binary1024(POSITIVE, FloatingType.INFINITE);
+	public static final Binary1024 NEGATIVE_INFINITY = new Binary1024(NEGATIVE, FloatingType.INFINITE);
+	public static final Binary1024 QUIET_NAN = new Binary1024(POSITIVE, FloatingType.QUIET_NAN);
+	public static final Binary1024 SIGNALING_NAN = new Binary1024(POSITIVE, FloatingType.SIGNALING_NAN);
 	
 	public static final Binary1024 MAX_VALUE = CODEC.getMaxValue();
 	public static final Binary1024 MIN_VALUE = CODEC.getMinSubnormalValue();
 	public static final Binary1024 MIN_NORMAL = CODEC.getMinValue();
 
-	private Binary1024(int signum, BigDecimal value, boolean unchecked) {
-		super(signum, value, true);
-	}
-	
 	private Binary1024(int signum, BigDecimal value) {
 		super(signum, value);
 	}
 
-	private Binary1024(int signum, BinaryType type) {
+	private Binary1024(int signum, FloatingType type) {
 		super(signum, type);
 	}
 
@@ -65,12 +64,7 @@ public final class Binary1024 extends Binary<Binary1024> {
 		return CODEC;
 	}
 	
-	private static class Binary64Factory implements BinaryFactory<Binary1024> {
-		
-		@Override
-		public Binary1024 createUnchecked(int signum, BigDecimal value) {
-			return new Binary1024(signum, value, true);
-		}
+	private static class Binary64Factory implements FloatingFactory<Binary1024> {
 		
 		@Override
 		public Binary1024 create(int signum, BigDecimal value) {
@@ -78,7 +72,7 @@ public final class Binary1024 extends Binary<Binary1024> {
 		}
 		
 		@Override
-		public Binary1024 create(int signum, BinaryType type) {
+		public Binary1024 create(int signum, FloatingType type) {
 			return new Binary1024(signum, type);
 		}
 		
