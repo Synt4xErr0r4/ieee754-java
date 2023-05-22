@@ -20,40 +20,29 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.ieee754.binary;
+package at.syntaxerror.ieee754;
 
 import java.math.BigDecimal;
 
 /**
- * This class is used to create new Binary objects
+ * This class is used to create new {@link Floating} objects
  * 
  * @author Thomas Kasper
  * 
  */
-public interface BinaryFactory<T extends Binary<T>> {
+public interface FloatingFactory<T extends Floating<T>> {
 
 	/**
-	 * Creates a new {@link Binary}
-	 * 
-	 * @param signum the signum (either -1, 0, or 1)
-	 * @param value the value
-	 * @return the new Binary
-	 * @deprecated internal use only
-	 */
-	@Deprecated
-	T createUnchecked(int signum, BigDecimal value);
-
-	/**
-	 * Creates a new {@link Binary}
+	 * Creates a new {@link Floating}
 	 * 
 	 * @param signum the signum (either -1, 0, or 1)
 	 * @param type the type
 	 * @return the new Binary
 	 */
-	T create(int signum, BinaryType type);
+	T create(int signum, FloatingType type);
 
 	/**
-	 * Creates a new {@link Binary}.
+	 * Creates a new {@link Floating}.
 	 * <p>
 	 * The primary use of this function is for creating signed zeros.
 	 * In all other cases, {@link #create(BigDecimal)} should be preferred.
@@ -65,7 +54,7 @@ public interface BinaryFactory<T extends Binary<T>> {
 	T create(int signum, BigDecimal value);
 
 	/**
-	 * Creates a new {@link Binary}
+	 * Creates a new {@link Floating}
 	 * 
 	 * @param value the value
 	 * @return the new Binary
@@ -76,7 +65,7 @@ public interface BinaryFactory<T extends Binary<T>> {
 	}
 
 	/**
-	 * Creates a new {@link Binary}.
+	 * Creates a new {@link Floating}.
 	 * 
 	 * @param value the value
 	 * @return the new Binary

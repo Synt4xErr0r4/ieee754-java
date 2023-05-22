@@ -1,6 +1,4 @@
-/** 
- * <code>
- * MIT License
+/* MIT License
  * 
  * Copyright (c) 2023 Thomas Kasper
  * 
@@ -21,18 +19,21 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
- * </code>
- *
- * A Java 19 library for converting between IEEE 754 binary and decimal floating-point numbers and Java's {@link java.math.BigDecimal BigDecimal}
+ */
+package at.syntaxerror.ieee754.decimal;
+
+/**
+ * This enum contains the different kinds of representing IEEE 754 decimal floating-point numbers
  * 
  * @author Thomas Kasper
- *
+ * 
  */
-module ieee754java {
-	exports at.syntaxerror.ieee754;
-	exports at.syntaxerror.ieee754.binary;
-	exports at.syntaxerror.ieee754.decimal;
+public enum DecimalCoding {
 
-	requires lombok;
-	requires ch.obermuhlner.math.big;
+	/** BID coding */
+	BINARY_INTEGER_DECIMAL,
+
+	/** DPD coding */
+	DENSLY_PACKED_DECIMAL
+	
 }

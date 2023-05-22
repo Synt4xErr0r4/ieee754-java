@@ -46,7 +46,7 @@ class BinaryTest {
 	
 	private static final Random RANDOM = new Random();
 	
-	private static final int RANDOM_COUNT = 10;
+	private static final int RANDOM_COUNT = 25;
 	
 	private static final int POSITIVE = +1;
 	private static final int NEGATIVE = -1;
