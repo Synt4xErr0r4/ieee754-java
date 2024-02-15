@@ -270,10 +270,14 @@ public final class BinaryCodec<T extends Binary<T>> extends FloatingCodec<T> {
 			int bits = significand.bitLength();
 			
 			significand = significand.add(BigInteger.ONE);
+			
+			int newBits = significand.bitLength();
 
-			if(bits != significand.bitLength()) { // overflow occured, adjust exponent
+			if(bits < newBits) { // overflow occured, adjust exponent
 				
-				significand = significand.clearBit(bits); // clear overflown bit					
+				if(newBits > this.significand + off)
+					significand = significand.clearBit(newBits - 1); // clear overflown bit
+				
 				++exp;
 				
 				// if exponent is all 1s now, return Infinity
@@ -298,7 +302,7 @@ public final class BinaryCodec<T extends Binary<T>> extends FloatingCodec<T> {
 					.or(significand.shiftLeft(this.significand - eMin + exp - len + 2));
 
 		// clear most significant bit if number is implicit
-		if(implicit)
+		if(implicit && len > 0)
 			significand = significand.clearBit(len - 1);
 
 		BigInteger result = BigInteger.valueOf(sign) 
