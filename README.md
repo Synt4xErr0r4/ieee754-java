@@ -8,7 +8,7 @@ This library can convert `java.math.BigDecimal`s into IEEE 754 binary representa
 
 ## Getting started
 
-In order to use the code, you can either [download the jar](https://github.com/Synt4xErr0r4/ieee754-java/releases/download/2.0.0/ieee754-java-2.1.0.jar), or use the Maven dependency:
+In order to use the code, you can either [download the jar](https://github.com/Synt4xErr0r4/ieee754-java/releases/download/2.0.1/ieee754-java-2.1.1.jar), or use the Maven dependency:
 
 ```xml
 <!-- Repository -->
@@ -23,7 +23,7 @@ In order to use the code, you can either [download the jar](https://github.com/S
 <dependency>
   <groupId>at.syntaxerror</groupId>
   <artifactId>ieee754-java</artifactId>
-  <version>2.1.0</version>
+  <version>2.1.1</version>
 </dependency>
 ```
 
@@ -164,6 +164,10 @@ Rounding.DEFAULT_ROUNDING = Rounding.TOWARD_ZERO;
 The JavaDoc for the latest version can be found [here](https://javadoc.syntaxerror.at/ieee754-java/latest).
 
 ## Changelog
+
+### 2.1.1
+
+- Fixed bug with values around the minimum subnormal value becoming 0
 
 ### 2.1.0
 
